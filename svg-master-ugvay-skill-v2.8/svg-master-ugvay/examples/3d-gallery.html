@@ -1,0 +1,14 @@
+<!doctype html><html><head><meta charset="utf-8"></head><body>
+<script src="svgmaster.js"></script>
+<script>
+LESSON({title:'3D',theme:'night',scenes:[
+ {title:'Molekulalar',dur:5,items:[{type:'mol3d',preset:'H2O',area:'left',angle:true},{type:'mol3d',preset:'CH4',area:'right',with:true}]},
+ {title:'Molekulalar 2',dur:5,items:[{type:'mol3d',preset:'C6H6',area:'left'},{type:'mol3d',preset:'C2H5OH',area:'right',with:true,style:'fill'}]},
+ {title:'Panjara, DNK',dur:5,items:[{type:'lattice',area:'left'},{type:'dna3d',area:'right',with:true}]},
+ {title:'Jismlar',dur:5,items:[{type:'solid',shape:'cube',area:'topleft',labels:true},{type:'solid',shape:'pyramid',area:'topright',with:true,color:'a2'},{type:'solid',shape:'cylinder',area:'bottomleft',with:true,color:'a4'},{type:'solid',shape:'cone',area:'bottomright',with:true,color:'a3'}]},
+ {title:'Jismlar 2',dur:5,items:[{type:'solid',shape:'sphere',area:'left'},{type:'solid',shape:'prism',area:'right',with:true,color:'a5',labels:true},{type:'solid',shape:'octa',area:'center',with:true,color:'a2'}]},
+{title:'Jismlar',dur:4,items:[{type:'solid',shape:'cube',area:'left',labels:true},{type:'solid',shape:'pyramid',area:'right',with:true,color:'a2',labels:true}]},
+ {title:'Yer',dur:5,items:[{type:'globe',area:'left',pins:[{lat:41.3,lon:69.2,text:'Toshkent'}],lon:-40},{type:'solar3d',area:'right',with:true,planets:6}]},
+ {title:'3D koordinata',dur:5,items:[{type:'axes3d',area:'left',vectors:[{to:[2,1,2],text:'a⃗'}],points:[{at:[1,2,1],text:'A'}]},{type:'axes3d',area:'right',with:true,fn:'sin(x)*cos(y)',grid:false}]}
+]});
+</script></body></html>

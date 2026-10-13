@@ -1,0 +1,13 @@
+<!doctype html><html><head><meta charset="utf-8"><title>TextLayout — Canvas demo</title>
+<style>html,body{margin:0;background:#000}canvas{width:100vw;display:block}</style></head><body>
+<canvas id="c" width="1080" height="1920"></canvas>
+<script src="textlayout.js"></script>
+<script>
+// 9:16 reel card: TL.layout + TL.drawFit (auto size, balanced lines) + TL.track → text-qa.mjs can check canvas text too
+const ctx=document.getElementById('c').getContext('2d');const W=1080,H=1920;const R=TL.layout('title',W,H);
+function render(t){TL.resetFrame();ctx.fillStyle='#0B0B0D';ctx.fillRect(0,0,W,H);
+  ctx.globalAlpha=Math.min(1,t*2);TL.drawFit(ctx,'MOTION · 2025',R.kicker,{max:34,weight:700,color:'#FF4A1C',align:'center',valign:'middle'});
+  TL.drawFit(ctx,'Matn hech qachon ustma-ust tushmaydi',R.title,{max:160,weight:800,color:'#F4F1EA',align:'center',valign:'middle',lineHeight:1.02});
+  TL.drawFit(ctx,'Har bir matn o‘z qutisiga avtomatik sig‘adi',R.sub,{max:52,weight:500,color:'#9A968C',align:'center',valign:'middle'});ctx.globalAlpha=1}
+window.__DUR=3;window.__seek=t=>render(t);render(1);window.__ready=true;
+</script></body></html>

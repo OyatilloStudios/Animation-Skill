@@ -1,0 +1,18 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Rasm bo'yicha dars</title></head><body>
+<script src="svgmaster.js"></script>
+<script>
+// Save the user's picture as flower.jpg next to this file. Open with ?grid=1 to read x,y (0..1) coordinates.
+LESSON({
+  title:'Gulning tuzilishi', subject:'Botanika', theme:'night',
+  scenes:[
+    {kind:'title', say:'Rasm asosida gul qismlarini o‘rganamiz.'},
+    {title:'Gulning *qismlari*', say:'Rasmdagi har bir qismni belgilab chiqamiz. Endi gul markaziga yaqinroq qaraymiz.',
+     camera:[{t:7,on:'@f.center',zoom:1.6},{t:10,zoom:1}],
+     items:[{type:'image', id:'f', src:'flower.jpg', area:'full',
+             labels:[{x:.5,y:.33,text:'Urug‘chi',id:'center'},{x:.62,y:.2,text:'Gulbarg'},{x:.5,y:.62,text:'Poya'},{x:.66,y:.62,text:'Barg'},{x:.47,y:.92,text:'Ildiz'}],
+             focus:[{x:.5,y:.33,r:.1,at:6.5}]}]},
+    {title:'Changlanish *jarayoni*', say:'Chang donasi urug‘chiga tushadi, so‘ng urug‘lanish sodir bo‘ladi va meva hosil bo‘ladi.',
+     items:[{type:'flow', area:'full', nodes:['Changchi','Chang donasi','Urug‘chi','Urug‘lanish','Meva va urug‘'], highlight:true}]},
+    {kind:'end', points:['Gul — o‘simlikning ko‘payish organi','Changlanishdan keyin urug‘ hosil bo‘ladi']}
+  ]});
+</script></body></html>

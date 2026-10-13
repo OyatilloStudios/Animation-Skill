@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Motion — template</title>
+<style>
+  html,body{margin:0;height:100%;background:#000;overflow:hidden}
+  body{display:flex;align-items:center;justify-content:center}
+  /* Fixed stage, letterboxed to any window. For vertical use 1080x1920 and swap the ratios. */
+  canvas{display:block;width:100vw;height:56.25vw;max-height:100vh;max-width:177.78vh}
+  #ui{position:fixed;left:16px;bottom:16px;display:flex;gap:8px}
+  #ui button{min-height:44px;padding:0 16px;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:rgba(20,20,22,.75);color:#fff;font:600 14px system-ui;cursor:pointer}
+  body.capture #ui{display:none}
+</style>
+</head>
+<body>
+<canvas id="c" width="1920" height="1080"></canvas>
+<div id="ui"><button id="play">▶ Play with sound</button><button id="replay">↺ Replay</button></div>
+<script>
+/* ============ CONFIG ============ */
+const W=1920,H=1080,BPM=120,BEAT=60/BPM,BAR=BEAT*4;
+const SCENES=[ // [start, duration, fn]  — durations on the bar grid
+  [0,      BAR*2, sceneIntro],
+  [BAR*2,  BAR*2, sceneMain],
+  [BAR*4,  BAR*2, sceneOutro],
+];
+const DUR=SCENES.at(-1)[0]+SCENES.at(-1)[1];
+const C={bg:'#0B0B0D',ink:'#F4F1EA',dim:'rgba(244,241,234,.5)',acc:'#FF4A1C'};
+const FONT='-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif';
+const cv=document.getElementById('c'),ctx=cv.getContext('2d');
+
+/* ============ TOOLKIT ============ */
+const clamp=(x,a=0,b=1)=>Math.min(b,Math.max(a,x));
+const lerp=(a,b,t)=>a+(b-a)*t;
+const prog=(t,a,b)=>clamp((t-a)/(b-a));           // local 0..1 of a window
+const E={outExpo:t=>t>=1?1:1-2**(-10*t),inExpo:t=>t<=0?0:2**(10*t-10),
+  outCubic:t=>1-(1-t)**3,inCubic:t=>t**3,inOutCubic:t=>t<.5?4*t**3:1-(-2*t+2)**3/2,
+  outBack:t=>1+3.2*(t-1)**3+2.2*(t-1)**2,inOutQuint:t=>t<.5?16*t**5:1-(-2*t+2)**5/2};
+const spring=(t,freq=2.2,damp=6)=>t<=0?0:1-Math.exp(-damp*t)*Math.cos(freq*2*Math.PI*t);
+const rnd=i=>{const x=Math.sin(i*127.1+311.7)*43758.5453;return x-Math.floor(x)}; // deterministic
+function bg(c=C.bg){ctx.fillStyle=c;ctx.fillRect(0,0,W,H)}
+function dot(x,y,r,sx=1,sy=1,c=C.acc){ctx.save();ctx.translate(x,y);ctx.scale(sx,sy);ctx.beginPath();ctx.arc(0,0,r,0,7);ctx.fillStyle=c;ctx.fill();ctx.restore()}
+function text(s,x,y,size,weight=800,c=C.ink,align='center',track=0){
+  ctx.font=`${weight} ${size}px ${FONT}`;ctx.fillStyle=c;ctx.textAlign=align;ctx.textBaseline='alphabetic';
+  ctx.letterSpacing=track+'px';ctx.fillText(s,x,y);ctx.letterSpacing='0px'}
+
+/* ============ SCENES (pure functions of local time lt) ============ */
+function sceneIntro(lt,d){
+  bg();
+  const p=E.outExpo(prog(lt,.2,1.2));
+  ctx.save();ctx.beginPath();ctx.rect(0,0,W,600);ctx.clip();          // mask reveal
+  text('YOUR TITLE',960,lerp(760,560,p),180,900);ctx.restore();
+  const s=spring(prog(lt,1.0,2.4)*1.4);dot(960,700,26*s);
+}
+function sceneMain(lt,d){
+  bg();
+  for(let i=0;i<12;i++){                                               // stagger
+    const p=E.outBack(prog(lt,i*.06,i*.06+.5));
+    const x=360+i*110,h=lerp(0,120+rnd(i)*320,p);
+    ctx.fillStyle=i===7?C.acc:C.ink;ctx.fillRect(x,800-h,70,h);
+  }
+  text('Stagger + overshoot',960,920,40,500,C.dim);
+}
+function sceneOutro(lt,d){
+  bg();
+  const p=E.inOutCubic(prog(lt,0,1));
+  ctx.globalAlpha=p;text('the end',960,560,140,800);ctx.globalAlpha=1;
+  ctx.fillStyle=C.acc;ctx.fillRect(960-140*p,610,280*p,4);
+}
+
+/* ============ MASTER render(t) ============ */
+function render(t){
+  t=clamp(t,0,DUR-1e-6);
+  const s=SCENES.find(([a,d])=>t>=a&&t<a+d)||SCENES.at(-1);
+  ctx.save();s[2](t-s[0],s[1]);ctx.restore();
+}
+
+/* ============ AUDIO (optional, deterministic schedule) ============ */
+let AC=null;
+function scheduleAudio(t0,ac=AC){
+  const out=ac.createGain();out.gain.value=.5;out.connect(ac.destination);
+  const kick=at=>{const o=ac.createOscillator(),g=ac.createGain();o.frequency.setValueAtTime(150,at);o.frequency.exponentialRampToValueAtTime(42,at+.12);
+    g.gain.setValueAtTime(.9,at);g.gain.exponentialRampToValueAtTime(.001,at+.35);o.connect(g).connect(out);o.start(at);o.stop(at+.4)};
+  for(let b=0;b<DUR/BEAT;b++)kick(t0+b*BEAT);
+}
+
+/* ============ PLAYBACK + EXPORT HOOKS (keep as is) ============ */
+let start=performance.now(),playing=true,audioClock=null;
+function frame(now){if(!playing)return;let t=audioClock?AC.currentTime-audioClock:(now-start)/1000;
+  if(t>=DUR+1){if(audioClock){audioClock=AC.currentTime+.05;scheduleAudio(audioClock)}else start=now;t=0}
+  render(Math.min(t,DUR-1e-6));requestAnimationFrame(frame)}
+function restart(sound){if(sound){AC=AC||new AudioContext();AC.resume();audioClock=AC.currentTime+.08;scheduleAudio(audioClock)}else audioClock=null;
+  start=performance.now();playing=true;requestAnimationFrame(frame)}
+document.getElementById('play').onclick=()=>restart(true);
+document.getElementById('replay').onclick=()=>restart(!!AC);
+window.__DUR=DUR;
+window.__seek=t=>{playing=false;render(t)};
+window.__renderAudio=async()=>{const sr=48000,oac=new OfflineAudioContext(2,Math.ceil(sr*DUR),sr);scheduleAudio(0,oac);
+  const buf=await oac.startRendering(),n=buf.length,ch=[buf.getChannelData(0),buf.getChannelData(1)];
+  const dv=new DataView(new ArrayBuffer(44+n*4)),w=(o,s)=>[...s].forEach((c,i)=>dv.setUint8(o+i,c.charCodeAt(0)));
+  w(0,'RIFF');dv.setUint32(4,36+n*4,true);w(8,'WAVEfmt ');dv.setUint32(16,16,true);dv.setUint16(20,1,true);dv.setUint16(22,2,true);
+  dv.setUint32(24,sr,true);dv.setUint32(28,sr*4,true);dv.setUint16(32,4,true);dv.setUint16(34,16,true);w(36,'data');dv.setUint32(40,n*4,true);
+  for(let i=0;i<n;i++)for(let c=0;c<2;c++)dv.setInt16(44+i*4+c*2,clamp(ch[c][i],-1,1)*32767,true);
+  let bin='';const u8=new Uint8Array(dv.buffer);for(let i=0;i<u8.length;i+=32768)bin+=String.fromCharCode(...u8.subarray(i,i+32768));return btoa(bin)};
+const q=new URLSearchParams(location.search);
+if(q.has('t')){document.body.classList.add('capture');window.__seek(+q.get('t'))}
+else if(matchMedia('(prefers-reduced-motion: reduce)').matches){playing=false;render(DUR-.5)}
+else requestAnimationFrame(frame);
+</script>
+</body>
+</html>

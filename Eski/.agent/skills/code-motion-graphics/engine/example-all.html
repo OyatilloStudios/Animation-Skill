@@ -1,0 +1,25 @@
+<!doctype html><html><head><meta charset="utf-8"></head><body>
+<script src="motion-engine.js"></script>
+<script>
+FILM({
+  title:'Engine test — all scenes', format:'16:9', theme:'dark', bpm:120, music:'tech', grid:true,
+  scenes:[
+    {type:'title', kicker:'ANIMOTION STUDIO', text:'Code meets *motion*', sub:'Every pixel is a function of time'},
+    {type:'words', text:'Think. Write. *Render.* Ship.'},
+    {type:'scramble', text:'PRECISION 30 FPS', sub:'DETERMINISTIC RENDERING'},
+    {type:'particles', text:'PARTICLES', sub:'2 000 POINTS · ONE FORMULA'},
+    {type:'counter', value:1250000, suffix:'+', label:'frames rendered this year'},
+    {type:'bars', title:'Render speed (fps)', unit:'', data:[{label:'Screenshots',value:12},{label:'Canvas capture',value:36},{label:'Draft mode',value:58}]},
+    {type:'list', title:'Why code?', items:['Exact timing on every frame','Infinite edits, zero re-keying','Sound synced to the beat']},
+    {type:'quote', text:'Motion is the *language* of attention.', author:'Studio notes'},
+    {type:'image', src:'missing.jpg', caption:'Your photo *here*', sub:'Ken Burns + scrim + masked caption'},
+    {type:'split', left:'Before', right:'After'},
+    {type:'shape3d', shape:'ico', text:'Parametric 3D', sub:'NO LIBRARIES'},
+    {type:'wave', text:'Harmonic oscillation', sub:'AUDIO-DRIVEN'},
+    {type:'grid', text:'Ripple field', sub:'DOT GRID · 1 800 DOTS'},
+    {type:'lower', text:'Oyatillo Erkinov', sub:'MOTION DESIGNER'},
+    {type:'cta', text:'Want one like this?', button:'Follow', done:'Following ✓', handle:'@oyatillo.studios'},
+    {type:'logo', text:'animotion', tagline:'PURE CODE · STUDIO QUALITY'}
+  ]
+});
+</script></body></html>

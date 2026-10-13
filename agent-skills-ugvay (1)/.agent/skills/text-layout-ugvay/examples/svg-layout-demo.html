@@ -1,0 +1,21 @@
+<!doctype html><html><head><meta charset="utf-8"><title>TextLayout — SVG demo</title>
+<style>html,body{margin:0;background:#0A0F1E}svg{width:100vw;height:56.25vw;display:block}</style></head><body>
+<svg id="stage" viewBox="0 0 1920 1080" xmlns="http://www.w3.org/2000/svg"></svg>
+<script src="textlayout.js"></script>
+<script>
+// 1) layout template → named boxes;  2) TL.svgText fits each text into its box;  3) TL.place puts labels without overlaps
+const svg=document.getElementById('stage'),NS='http://www.w3.org/2000/svg';const R=TL.layout('media-left',1920,1080);
+const rect=(b,c)=>{const r=document.createElementNS(NS,'rect');Object.entries({x:b.x,y:b.y,width:b.w,height:b.h,fill:'none',stroke:c,'stroke-dasharray':'8 6'}).forEach(([k,v])=>r.setAttribute(k,v));svg.appendChild(r)};
+Object.entries({header:'#4FD1FF',media:'#7CF29A',text:'#FFB547',caption:'#FF5C7A'}).forEach(([k,c])=>rect(R[k],c));
+TL.svgText(svg,TL.uz("Fotosintez — yorug'lik energiyasining kimyoviy energiyaga aylanishi"),R.header,{max:64,color:'#EAF0FF',weight:800,valign:'middle'});
+TL.svgText(svg,TL.uz("Xloroplastlarda yorug'lik bosqichida suv parchalanadi va kislorod ajraladi. Qorong'ilik bosqichida (Kalvin sikli) CO2 dan glyukoza sintezlanadi. Jarayon uchun yorug'lik, suv, karbonat angidrid va xlorofill kerak."),R.text,{max:52,color:'#C9D3EE',weight:500,valign:'middle'});
+TL.svgText(svg,'Subtitr har doim pastki zonada, 2 qatordan oshmaydi.',R.caption,{max:36,color:'#fff',align:'middle',valign:'middle'});
+// labels around anchor points inside the media box
+const M=R.media;const pts=[[.3,.3,'Tilakoid'],[.35,.36,'Grana'],[.6,.5,'Stroma'],[.7,.62,'Kraxmal donasi'],[.5,.8,'Tashqi membrana'],[.52,.78,'Ichki membrana']].map(([u,v,t])=>({x:M.x+u*M.w,y:M.y+v*M.h,text:t}));
+const items=pts.map(p=>({x:p.x,y:p.y,w:TL.measure(p.text,30,700)+8,h:38,id:p.text}));const P=TL.place(items,{bounds:M,dist:26});
+P.forEach((r,i)=>{const p=pts[i];const l=document.createElementNS(NS,'line');Object.entries({x1:p.x,y1:p.y,x2:r.x+r.w/2,y2:r.y+r.h/2,stroke:'#FFB547','stroke-width':2}).forEach(([k,v])=>l.setAttribute(k,v));svg.appendChild(l);
+  const c=document.createElementNS(NS,'circle');Object.entries({cx:p.x,cy:p.y,r:6,fill:'#FFB547'}).forEach(([k,v])=>c.setAttribute(k,v));svg.appendChild(c);
+  const bg=document.createElementNS(NS,'rect');Object.entries({x:r.x,y:r.y,width:r.w,height:r.h,rx:8,fill:'#121A33'}).forEach(([k,v])=>bg.setAttribute(k,v));svg.appendChild(bg);
+  TL.svgText(svg,p.text,{x:r.x+4,y:r.y+4,w:r.w-8,h:r.h-8},{max:30,color:'#EAF0FF'})});
+const issues=TL.scan(svg,{W:1920,H:1080,frame:svg}).issues;console.log(TL.report(issues).join('\n')||'no overlaps');window.__ready=true;
+</script></body></html>

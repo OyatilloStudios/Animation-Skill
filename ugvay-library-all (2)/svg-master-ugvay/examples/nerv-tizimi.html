@@ -1,0 +1,26 @@
+<!doctype html><html><head><meta charset="utf-8"></head><body>
+<script src="svgmaster.js"></script>
+<script>
+LESSON({title:'Inson *Nerv* Tizimi',subtitle:'Tuzilishi, vazifalari va reflekslar',subject:'Biologiya va tibbiyot',author:'UGVAY Ta’lim Studiyasi',brand:'UGVAY · TIBBIY DAFTAR',theme:'paper',music:false,
+scenes:[
+ {kind:'title',say:'Inson tanasidagi barcha a’zolar faoliyatini bir-biriga bog‘lovchi yagona boshqaruv tizimi — nerv tizimi bilan tanishamiz.'},
+ {title:'Neyron tanasi va *dendritlar*',say:'Neyron tanasi yadro va organoidlarni saqlaydi. Qisqa, daraxtsimon shoxlangan o‘simtalar dendritlar deb ataladi.',
+  items:[{type:'neuron',id:'n',area:'left'},
+   {type:'text',area:'right',bullets:true,text:'- Tana (soma) yadro va organoidlarni saqlaydi\n- Dendritlar — ko‘p sonli o‘simtalar, ular signallarni tanaga olib keladi\n- Akson signallarni *keyingi hujayraga* yetkazadi.'},
+   {type:'magnifier',x:560,y:540,zoom:2.4,text:'Soma (tana) va Yadro'}]},
+ {title:'Uzun o‘simta — *Akson va Miyelin*',camera:{preset:'push-in',zoom:1.5},say:'Akson oq yog‘simon modda — miyelin bilan o‘ralgan. Ranvye bo‘g‘imlari signalni sakrab o‘tkazadi.',
+  items:[{type:'neuron',id:'n2',area:'left'},
+   {type:'text',area:'right',text:'Miyelin qobiq signal tezligini oshiradi: impuls Ranvye bo‘g‘imlari orasida sakrab, sekundiga 120 metrgacha tezlikka *yetadi*. Bo‘g‘imlar orasidagi oraliqlar izolyatsiyalangan.'}]},
+ {title:'Membrana potensiali va *Na⁺/K⁺ nasosi*',say:'Maxsus ATF nasosi tinimsiz 3 ta natriyni chiqarib, 2 ta kaliyni ichkariga haydaydi.',
+  items:[{type:'membrane',area:'left'},
+   {type:'text',area:'right',bullets:true,text:'- Nasos 3 ta Na⁺ ni tashqariga, 2 ta K⁺ ni ichkariga haydaydi\n- Shu tufayli tinchlik potensiali (−70 mV) tug‘iladi\n- Nasos to‘xtasa, signali uzatilishi to‘xtaydi.'},
+   {type:'formula',tex:'3Na^+ \\text{ (tashqariga)}',x:1700,y:620,w:500,h:90}]},
+ {title:'Bosh miya: *Boshqaruv saroyi*',camera:{preset:'focus',zoom:1.5},say:'Bosh miya kalla suyagi bo‘shlig‘ida joylashgan bo‘lib, o‘rtacha og‘irligi 1300–1400 grammni tashkil etadi. U organizmdagi kislorodning 20 foizini sarflaydi.',
+  items:[{type:'brain',id:'b',area:'left'},
+   {type:'text',area:'right',bullets:true,fxOut:'blur-out',text:'- Kalla suyagi ichida suyaklar bilan himoyalangan\n- Organizmdagi kislorodning *20 foizini* sarflaydi\n- Kislorodsiz 5 daqiqa qolsa, hujayralar halok bo‘la boshlaydi.'}]},
+ {title:'Simpatik va *Parasimpatik* bo‘lim',say:'Vegetativ tizim ikki qismdan iborat: Simpatik xavf paytida organizmni safarbar qilsa, Parasimpatik dam olish va quvvat to‘plashni ta’minlaydi.',
+  items:[{type:'text',area:'left',bullets:true,text:'*SIMPATIK: “Jang yoki qoch!”*\n- Yurak urishi tezlashadi\n- Qon bosimi ko‘tariladi\n- Qorachiqlar kengayadi'},
+   {type:'text',area:'right',bullets:true,text:'*PARASIMPATIK: “Dam ol”*\n- Yurak urishi me’yorlashadi\n- Qon bosimi tushadi\n- Qorachiqlar torayadi'}]},
+ {kind:'end',points:['Neyron — nerv tizimining asosiy birligi','Miyelin signalni tezlashtiradi','Bosh miya kislorodning 20% ini sarflaydi']}
+]});
+</script></body></html>

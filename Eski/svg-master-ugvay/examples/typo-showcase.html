@@ -1,0 +1,15 @@
+<!doctype html><html><head><meta charset="utf-8"></head><body>
+<script src="svgmaster.js"></script>
+<script>
+// TYPO showcase: every text effect (in / emphasis / out) + every scene transition. Generated from TYPO.names().
+const N=SM.typo.names(),TR=['push-left','wipe-right','iris','blinds','zoom','split','push-up','diagonal','blur','slide','flip','grid','page','barn','radial','venetian','spin','zoom-out','wipe-down','push-right','whip','wipe-left','wipe-up','push-down','fade'];
+const grid=(names,kind)=>names.map((n,i)=>{const c=i%4,r=Math.floor(i/4);const it={type:'text',box:[110+c*430,250+r*190,400,150],align:'center',size:44,weight:700,text:kind==='emph'?'Matn *'+n+'*':n,at:.6+i*.25};
+  if(kind==='in')it.fx=n;if(kind==='emph'){it.fx='fade';it.emph=n;it.emphAt=1.2+i*.2}if(kind==='out'){it.fx='fade';it.fxOut=n}return it});
+const chunk=(a,k)=>a.reduce((o,x,i)=>{(o[Math.floor(i/k)]=o[Math.floor(i/k)]||[]).push(x);return o},[]);
+const scenes=[{kind:'title',title:'TYPO — *68* matn effekti',subtitle:'kirish → urg‘u → chiqish · 26 o‘tish effekti'}];let k=0;
+chunk(N.in,12).forEach((g,j)=>scenes.push({title:`Kirish effektlari *${j+1}*`,transition:TR[k++%TR.length],hold:1.5,items:grid(g,'in')}));
+chunk(N.emph,12).forEach((g,j)=>scenes.push({title:`Urg‘u effektlari *${j+1}*`,transition:TR[k++%TR.length],hold:2,items:grid(g,'emph')}));
+chunk(N.out,12).forEach((g,j)=>scenes.push({title:`Chiqish effektlari *${j+1}*`,transition:TR[k++%TR.length],dur:7,items:grid(g,'out')}));
+TR.slice(k).forEach(t=>scenes.push({title:`O‘tish: *${t}*`,transition:t,dur:2.6,items:[{type:'text',area:'full',align:'center',size:64,weight:800,text:t,fx:'mask-up'}]}));
+LESSON({title:'TYPO',theme:'paper',music:false,captions:false,scenes});
+</script></body></html>

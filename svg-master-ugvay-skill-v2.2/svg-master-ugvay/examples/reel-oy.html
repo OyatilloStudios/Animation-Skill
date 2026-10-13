@@ -1,0 +1,16 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Nega Oy Yerga tushmaydi?</title></head><body>
+<script src="svgmaster.js"></script>
+<script>
+LESSON({
+  title:'Nega Oy Yerga *tushmaydi*?', subtitle:'30 soniyada fizika', subject:'Fizika', format:'9:16', theme:'night', music:'tech', brand:'UGVAY',
+  scenes:[
+    {kind:'title', say:'Oy doim Yerga tushyapti… lekin hech qachon yetib bormaydi!'},
+    {title:'Tezroq *otsak*?', say:'Jismni qanchalik tez otsak, shuncha uzoqqa tushadi.',
+     items:[{type:'projectile', area:'top', v0:14, angle:40},{type:'projectile', area:'bottom', v0:22, angle:40}]},
+    {title:'Orbita — bu *erkin tushish*', say:'Yetarli tezlikda Yer sirti egilib, jismdan "qochib" ketadi. Bu orbita.',
+     items:[{type:'orbit', area:'top', planets:[{a:1,period:5,color:'a1',size:18}], sunSize:60},
+            {type:'formula', area:'bottom', tex:'v=\\sqrt{\\frac{GM}{r}}', size:96, boxed:true}]},
+    {kind:'quiz', question:'Oy nega Yerga tushmaydi?', options:['Tortishish yo‘q','Yetarli yon tezligi bor','Havo ushlab turadi'], answer:1, think:3},
+    {kind:'end', points:['Oy doim erkin tushishda','Yon tezlik uni orbitada ushlaydi'], text:'Obuna bo‘ling!'}
+  ]});
+</script></body></html>

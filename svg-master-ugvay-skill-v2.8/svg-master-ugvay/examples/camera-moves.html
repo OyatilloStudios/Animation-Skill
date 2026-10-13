@@ -1,0 +1,11 @@
+<!doctype html><html><head><meta charset="utf-8"></head><body>
+<script src="svgmaster.js"></script>
+<script>
+LESSON({title:'Kamera test',theme:'night',handheld:true,scenes:[
+ {title:'Yurak → zoom',dur:6,camera:[{t:1,dur:2,on:'@h.lv',zoom:2.2},{t:4,dur:1.5,zoom:1,rotate:0}],items:[{type:'heart',id:'h',area:'full',labels:true}]},
+ {title:'Mayatnik follow',dur:6,transition:'whip',camera:[{t:.5,dur:1,follow:'@p',zoom:1.8}],shake:[{t:3,dur:.6,amp:20}],items:[{type:'pendulum',id:'p',area:'full'}]},
+ {title:'Hujayra',dur:5,transition:'iris',items:[{type:'cell',id:'c',area:'full',labels:true}]},
+ {title:'Mitoxondriya (dive)',dur:5,dive:'@c.mitochondria',items:[{type:'mitochondrion',area:'full',labels:true}],focus:{blur:true}},
+ {title:'Slide',dur:4,transition:'zoom',items:[{type:'brain',area:'full',labels:true,highlight:'temporal'}]}
+]});
+</script></body></html>

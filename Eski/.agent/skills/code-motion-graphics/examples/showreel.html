@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Motion Showreel — 100% code</title>
+<style>
+  html,body{margin:0;height:100%;background:#000;overflow:hidden}
+  body{display:flex;align-items:center;justify-content:center;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif}
+  canvas{display:block;width:100vw;height:56.25vw;max-height:100vh;max-width:177.78vh;background:#0B0B0D}
+  #ui{position:fixed;left:16px;bottom:16px;display:flex;gap:8px;z-index:2}
+  #ui button{min-height:44px;padding:0 16px;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:rgba(20,20,22,.75);color:#fff;font:600 14px/1 inherit;cursor:pointer;backdrop-filter:blur(6px)}
+  #ui button:hover{background:rgba(56,56,54,.9)}
+  #ui button:focus-visible{outline:2px solid #5E9FE8;outline-offset:2px}
+  body.capture #ui{display:none}
+</style>
+</head>
+<body>
+<canvas id="c" width="1920" height="1080" aria-label="15 soniyalik motion graphics showreel"></canvas>
+<div id="ui">
+  <button id="play">▶ Ovoz bilan boshlash</button>
+  <button id="replay">↺ Qayta</button>
+</div>
+<script>
+/* =========================================================
+   15s SHOWREEL · 1920x1080 · 128 BPM · 8 bars = 15.0s
+   Everything is a pure function of time: render(t).
+   Deterministic → can be captured frame-by-frame to MP4.
+   ========================================================= */
+const W=1920,H=1080,DUR=15,BPM=128,BEAT=60/BPM,BAR=BEAT*4; // BAR = 1.875s
+const cv=document.getElementById('c'),ctx=cv.getContext('2d');
+const C={bg:'#0B0B0D',ink:'#F4F1EA',dim:'rgba(244,241,234,.45)',acc:'#FF4A1C',blue:'#5E9FE8'};
+const FONT='-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif';
+
+/* ---------- easing & helpers ---------- */
+const clamp=(x,a=0,b=1)=>Math.min(b,Math.max(a,x));
+const lerp=(a,b,t)=>a+(b-a)*t;
+const prog=(t,a,b)=>clamp((t-a)/(b-a));
+const E={
+  outExpo:t=>t>=1?1:1-Math.pow(2,-10*t),
+  inExpo:t=>t<=0?0:Math.pow(2,10*t-10),
+  inOutCubic:t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2,
+  outCubic:t=>1-Math.pow(1-t,3),
+  inCubic:t=>t*t*t,
+  outBack:t=>{const c1=2.2,c3=c1+1;return 1+c3*Math.pow(t-1,3)+c1*Math.pow(t-1,2)},
+  inOutQuint:t=>t<.5?16*t**5:1-Math.pow(-2*t+2,5)/2,
+};
+// damped spring 0→1
+const spring=(t,f=4.5,d=6)=>t<=0?0:1-Math.exp(-d*t)*Math.cos(f*Math.PI*2*t*.5);
+// deterministic pseudo-random
+const rnd=i=>{const x=Math.sin(i*127.1+311.7)*43758.5453;return x-Math.floor(x)};
+
+function dot(x,y,r,sx=1,sy=1,col=C.acc){
+  ctx.save();ctx.translate(x,y);ctx.scale(sx,sy);
+  ctx.beginPath();ctx.arc(0,0,r,0,Math.PI*2);ctx.fillStyle=col;ctx.fill();ctx.restore();
+}
+function text(s,x,y,size,weight=800,col=C.ink,align='center',track=0){
+  ctx.font=`${weight} ${size}px ${FONT}`;ctx.fillStyle=col;ctx.textAlign=align;ctx.textBaseline='alphabetic';
+  if('letterSpacing' in ctx) ctx.letterSpacing=track+'px';
+  ctx.fillText(s,x,y);
+  if('letterSpacing' in ctx) ctx.letterSpacing='0px';
+}
+function label(s,x,y,a=1,align='left'){ctx.globalAlpha=a;text(s,x,y,22,600,C.dim,align,4);ctx.globalAlpha=1}
+function bg(col=C.bg){ctx.fillStyle=col;ctx.fillRect(0,0,W,H)}
+
+/* ---------- scene timing ---------- */
+const S=i=>i*BAR; // scene i start
+
+/* ===== SCENE 1 · bouncing dot, squash & stretch ===== */
+function scene1(t){
+  bg();
+  const floor=700,r=34;
+  // physical bounces with decaying height
+  const bounces=[[0,.62,560],[.62,1.06,260],[1.06,1.36,110],[1.36,1.56,40]];
+  let y=floor-r,sx=1,sy=1;
+  if(t<.42){ // initial drop from above frame
+    const p=E.inCubic(prog(t,0,.42));y=lerp(-80,floor-r,p);sy=1+p*.35;sx=1-p*.18;
+  } else {
+    const tt=t-.42;
+    for(const [a,b,h] of bounces){
+      const A=a*0.95,B=b*0.95;
+      if(tt>=A&&tt<B){const p=(tt-A)/(B-A);const s=Math.sin(p*Math.PI);y=floor-r-h*s;
+        const v=Math.cos(p*Math.PI);sy=1+Math.abs(v)*.25*(h/560);sx=1-Math.abs(v)*.12*(h/560);}
+    }
+    // squash on every impact
+    for(const [a,,h] of bounces){const d=Math.abs(tt-a*0.95);if(d<.06){const k=(1-d/.06)*(.15+.35*h/560);sy=1-k;sx=1+k;y=floor-r*(1-k)}}
+  }
+  // shadow
+  const sh=clamp(1-(floor-r-y)/600);
+  ctx.globalAlpha=.25*sh;dot(960,floor+6,r*1.6*sh+4,1,.22,'#000');ctx.globalAlpha=.5*sh;
+  ctx.fillStyle='rgba(255,255,255,.06)';ctx.fillRect(560,floor,800,2);ctx.globalAlpha=1;
+  dot(960,y,r,sx,sy);
+  // end: dot glides to center
+  label('SHOWREEL — 2026',96,96,E.outCubic(prog(t,.3,.9)));
+  label('01 / SQUASH & STRETCH',W-96,96,E.outCubic(prog(t,.5,1.1)),'right');
+  return {x:960,y};
+}
+
+/* ===== SCENE 2 · kinetic type slam ===== */
+function scene2(t){
+  bg();
+  const word='MOTION',size=300;
+  ctx.font=`900 ${size}px ${FONT}`;
+  const widths=[...word].map(ch=>ctx.measureText(ch).width);
+  const total=widths.reduce((a,b)=>a+b,0)+ (word.length-1)*6;
+  let x=960-total/2;
+  // camera shake on each hit
+  let shake=0;
+  for(let i=0;i<word.length;i++){const hit=i*BEAT*.5;const d=t-hit-.12;if(d>0&&d<.18)shake=Math.max(shake,(1-d/.18)*14)}
+  ctx.save();ctx.translate(Math.sin(t*90)*shake,Math.cos(t*77)*shake);
+  const baseY=640;
+  for(let i=0;i<word.length;i++){
+    const st=i*BEAT*.5,p=prog(t,st,st+.32);
+    const cx=x+widths[i]/2;
+    if(p>0){
+      const s=lerp(3.2,1,E.outExpo(p));const rot=lerp((i%2?1:-1)*.5,0,E.outBack(p));
+      ctx.save();ctx.translate(cx,baseY-size*.35);ctx.rotate(rot);ctx.scale(s,s);
+      ctx.globalAlpha=clamp(p*4);
+      text(word[i],0,size*.35,size,900,C.ink);
+      ctx.restore();
+    }
+    x+=widths[i]+6;
+  }
+  // accent period lands after the last letter
+  const pd=prog(t,BEAT*3.1,BEAT*3.1+.45);
+  if(pd>0){const yy=lerp(-60,baseY-30,E.outCubic(Math.min(pd*1.6,1)));
+    const sq=pd>.6?Math.max(0,1-(pd-.6)/.25)*.4:0;
+    dot(x+20,yy,30,1+sq,1-sq);}
+  ctx.restore();
+  // subtitle wipe
+  const sp=E.outExpo(prog(t,BEAT*2.2,BEAT*3.4));
+  ctx.save();ctx.beginPath();ctx.rect(0,700,W*sp,120);ctx.clip();
+  text('written in code, not keyframes',960,760,44,500,C.dim,'center',2);ctx.restore();
+  label('02 / KINETIC TYPE',W-96,96,1,'right');
+}
+
+/* ===== SCENE 3 · 3D point sphere → torus morph ===== */
+const N=900;const PTS=[];
+for(let i=0;i<N;i++){
+  const k=i+.5,phi=Math.acos(1-2*k/N),th=Math.PI*(1+Math.sqrt(5))*k;
+  const sphere=[Math.cos(th)*Math.sin(phi),Math.cos(phi),Math.sin(th)*Math.sin(phi)];
+  const u=(i%30)/30*Math.PI*2,v=Math.floor(i/30)/30*Math.PI*2+u*.033; // 30x30 torus grid
+  const R=.72,r=.3;
+  const torus=[(R+r*Math.cos(u))*Math.cos(v),r*Math.sin(u),(R+r*Math.cos(u))*Math.sin(v)];
+  PTS.push({sphere,torus});
+}
+function scene3(t){
+  bg();
+  const m=E.inOutCubic(prog(t,.25,1.2));
+  const ay=t*1.4+.4,ax=.45+Math.sin(t*1.1)*.25;
+  const cy=Math.cos(ay),sy=Math.sin(ay),cx=Math.cos(ax),sx=Math.sin(ax);
+  const scale=lerp(330,420,E.outCubic(prog(t,0,.5)));
+  const proj=[];
+  for(let i=0;i<N;i++){
+    const a=PTS[i].sphere,b=PTS[i].torus;
+    let x=lerp(a[0],b[0],m),y=lerp(a[1],b[1],m),z=lerp(a[2],b[2],m);
+    // twist during morph
+    const tw=Math.sin(m*Math.PI)*y*1.2;const c=Math.cos(tw),s=Math.sin(tw);
+    [x,z]=[x*c-z*s,x*s+z*c];
+    let x1=x*cy-z*sy,z1=x*sy+z*cy;let y1=y*cx-z1*sx,z2=y*sx+z1*cx;
+    const f=3.2/(3.2+z2);
+    proj.push([960+x1*scale*f,540+y1*scale*f,z2,f]);
+  }
+  proj.sort((p,q)=>q[2]-p[2]);
+  for(const p of proj){
+    const depth=clamp((1.2-p[2])/2.4);
+    ctx.globalAlpha=.15+.85*depth;
+    ctx.fillStyle=C.ink;ctx.beginPath();ctx.arc(p[0],p[1],1.4+2.6*p[3]*depth,0,Math.PI*2);ctx.fill();
+  }
+  ctx.globalAlpha=1;
+  // accent dot orbits through depth
+  const o=t*3.4,oz=Math.sin(o);
+  const ox=960+Math.cos(o)*560,oy=540+Math.sin(o)*120;
+  dot(ox,oy,lerp(14,30,(oz+1)/2));
+  label('03 / 900 POINTS · ZERO 3D ENGINE',W-96,96,1,'right');
+  label(`MORPH ${Math.round(m*100).toString().padStart(3,'0')}%`,96,H-80,1);
+}
+
+/* ===== SCENE 4 · flipping grid wave ===== */
+function scene4(t){
+  bg();
+  const cols=14,rows=7,cell=112;
+  const ox=(W-cols*cell)/2,oy=(H-rows*cell)/2+10;
+  for(let j=0;j<rows;j++)for(let i=0;i<cols;i++){
+    const d=Math.hypot(i,j-6)/15; // wave origin bottom-left
+    const p=E.inOutQuint(prog(t,d*1.05,d*1.05+.55));
+    const flip=Math.cos(p*Math.PI); // 1 → -1
+    const x=ox+i*cell+cell/2,y=oy+j*cell+cell/2;
+    const w=(cell-14)*Math.abs(flip),h=cell-14;
+    const front=flip>0;
+    ctx.fillStyle=front?'#18181B':(rnd(i*31+j)<.16?C.acc:'#F4F1EA');
+    const rr=Math.min(8,w/2);
+    ctx.beginPath();ctx.roundRect(x-w/2,y-h/2,w,h,rr);ctx.fill();
+  }
+  // big text revealed on back faces via knockout
+  const tp=E.outExpo(prog(t,1.0,1.6));
+  ctx.save();ctx.globalAlpha=tp;
+  text('RHYTHM',960+lerp(80,0,tp),620,230,900,C.bg,'center',-4);
+  ctx.restore();
+  label('04 / 98 TILES · ONE WAVE',W-96,96,1,'right');
+}
+
+/* ===== SCENE 5 · ribbon of offset lines ===== */
+function scene5(t){
+  bg();
+  const lines=28,reveal=E.outCubic(prog(t,0,.7));
+  for(let k=0;k<lines;k++){
+    const f=k/(lines-1);
+    ctx.beginPath();
+    for(let x=0;x<=W*reveal;x+=12){
+      const u=x/W;
+      const y=540+Math.sin(u*6+t*3+f*1.6)*170*Math.sin(u*Math.PI)+(f-.5)*220*Math.cos(u*3+t*1.5)+Math.sin(u*14-t*4)*10;
+      x===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+    }
+    ctx.strokeStyle=k===14?C.acc:`rgba(244,241,234,${.12+.5*Math.sin(f*Math.PI)})`;
+    ctx.lineWidth=k===14?4:1.6;ctx.stroke();
+  }
+  // dot rides the accent line
+  const u=(prog(t,.2,1.85)),x=u*W;
+  const f=14/27;
+  const y=540+Math.sin(u*6+t*3+f*1.6)*170*Math.sin(u*Math.PI)+(f-.5)*220*Math.cos(u*3+t*1.5)+Math.sin(u*14-t*4)*10;
+  if(u>0)dot(x,y,22);
+  label('05 / 28 LINES · PHASE OFFSET',W-96,96,1,'right');
+}
+
+/* ===== SCENE 6 · ring tunnel → dot fills screen ===== */
+function scene6(t){
+  bg();
+  const rings=26;
+  for(let i=0;i<rings;i++){
+    let z=((i/rings)-(t*.55))%1;if(z<0)z+=1;z=1-z; // 1 far → 0 near
+    const r=40/(z+.02);
+    if(r>1600)continue;
+    const a=clamp(1-z)*.9;
+    ctx.save();ctx.translate(960+Math.sin(t*2+z*3)*40*z,540+Math.cos(t*1.7+z*3)*30*z);
+    ctx.rotate(t*.8+i*.25);
+    ctx.strokeStyle=i%6===0?`rgba(255,74,28,${a})`:`rgba(244,241,234,${a*.7})`;
+    ctx.lineWidth=Math.max(1,6*(1-z));
+    ctx.setLineDash([r*.35,r*.12]);
+    ctx.beginPath();ctx.arc(0,0,r,0,Math.PI*2);ctx.stroke();ctx.restore();
+  }
+  ctx.setLineDash([]);
+  // the dot grows from the vanishing point and swallows the frame
+  const g=E.inExpo(prog(t,1.05,1.875));
+  dot(960,540,lerp(18,1300,g));
+  label('06 / TUNNEL',W-96,96,1-g,'right');
+}
+
+/* ===== SCENE 7 · stat cards on accent ===== */
+function scene7(t){
+  bg(C.acc);
+  const rows=[['60','FPS — every frame computed'],['100%','code — HTML · Canvas · JS'],['0','After Effects files']];
+  rows.forEach((r,i)=>{
+    const st=i*BEAT*.9+.05,p=E.outExpo(prog(t,st,st+.5));
+    const y=330+i*230;
+    ctx.save();ctx.beginPath();ctx.rect(0,y-190,W,215);ctx.clip();
+    const off=lerp(220,0,p);
+    // counter
+    let num=r[0];
+    if(num==='60')num=String(Math.round(60*E.outCubic(prog(t,st,st+.6))));
+    if(num==='100%')num=Math.round(100*E.outCubic(prog(t,st,st+.6)))+'%';
+    text(num,180,y+off,200,900,C.bg,'left',-6);
+    ctx.font=`900 200px ${FONT}`;
+    text(r[1],i===1?720:(i===0?470:380),y-52+off,52,600,'rgba(11,11,13,.82)','left',0);
+    ctx.restore();
+  });
+  // shrink back into a dot at the end
+  const s=E.inOutCubic(prog(t,1.45,1.875));
+  if(s>0){ctx.fillStyle=C.bg;ctx.beginPath();ctx.rect(0,0,W,H);
+    ctx.arc(960,540,lerp(1300,30,s),0,Math.PI*2,true);ctx.fill('evenodd');}
+  label('07 / NUMBERS',W-96,96,1-s,'right');
+}
+
+/* ===== SCENE 8 · wordmark finale, dot becomes the i ===== */
+function scene8(t){
+  bg();
+  const word='oyatillo studios',size=170;
+  const shown=word.replace('i','ı');
+  ctx.font=`800 ${size}px ${FONT}`;ctx.textAlign='left';
+  if('letterSpacing' in ctx)ctx.letterSpacing='-2px';
+  const full=ctx.measureText(shown).width-(-2); // trailing spacing
+  const pre=ctx.measureText('oyat').width,iw=ctx.measureText('ı').width+2;
+  if('letterSpacing' in ctx)ctx.letterSpacing='0px';
+  const x0=960-full/2,base=600;
+  // locate the dotless-i stem: the accent dot becomes its tittle
+  const ix=x0+pre+iw/2+3,iy=base-size*.8;
+  const wp=E.outExpo(prog(t,.32,.9));
+  // wordmark reveal: mask wipe up + slight track-in
+  ctx.save();ctx.beginPath();ctx.rect(0,base-size*1.1+lerp(size*1.3,0,wp),W,size*1.4);ctx.clip();
+  ctx.globalAlpha=wp;
+  text(shown,960,base+lerp(40,0,wp),size,800,C.ink,'center',lerp(30,-2,wp));
+  ctx.restore();
+  // dot: from center, arcs and lands on the i
+  const dp=prog(t,0,.62);
+  const sx=960,sy=540;
+  const x=lerp(sx,ix,E.inOutCubic(dp));
+  const arc=Math.sin(dp*Math.PI)*-260;
+  const y=lerp(sy,iy,E.inCubic(dp))+arc;
+  const land=prog(t,.62,.9);
+  const sq=land>0?Math.sin(land*Math.PI)*.45*(1-land):0;
+  dot(x,y,lerp(30,size*.11,E.outCubic(dp)),1+sq,1-sq);
+  // light sweep
+  const sw=prog(t,.85,1.35);
+  if(sw>0&&sw<1){
+    ctx.save();ctx.globalCompositeOperation='overlay';
+    const gx=lerp(x0-300,x0+full+300,sw);
+    const g=ctx.createLinearGradient(gx-160,0,gx+160,0);
+    g.addColorStop(0,'rgba(255,255,255,0)');g.addColorStop(.5,'rgba(255,255,255,.9)');g.addColorStop(1,'rgba(255,255,255,0)');
+    ctx.fillStyle=g;ctx.fillRect(0,base-size,W,size*1.3);ctx.restore();
+  }
+  // tagline
+  const tg=E.outCubic(prog(t,.95,1.45));
+  ctx.globalAlpha=tg;text('MOTION · CODE · 2026',960,base+120+lerp(30,0,tg),30,600,C.dim,'center',10);ctx.globalAlpha=1;
+  // underline draw
+  const ul=E.inOutCubic(prog(t,1.0,1.6));
+  ctx.fillStyle=C.acc;ctx.fillRect(960-160*ul,base+48,320*ul,4);
+}
+
+/* ---------- master timeline ---------- */
+const SCENES=[scene1,scene2,scene3,scene4,scene5,scene6,scene7,scene8];
+function render(t){
+  t=clamp(t,0,DUR-1e-6);
+  const i=Math.min(7,Math.floor(t/BAR)),lt=t-S(i);
+  ctx.save();
+  // micro zoom-punch on every cut
+  const punch=lt<.18?1+(1-lt/.18)*.035:1;
+  ctx.translate(960,540);ctx.scale(punch,punch);ctx.translate(-960,-540);
+  SCENES[i](lt);
+  ctx.restore();
+  // cut flash
+  if(i>0&&i!==7&&lt<.08){ctx.fillStyle=`rgba(255,255,255,${(1-lt/.08)*.12})`;ctx.fillRect(0,0,W,H)}
+  // film grain + vignette for finish
+  const vg=ctx.createRadialGradient(960,540,400,960,540,1150);
+  vg.addColorStop(0,'rgba(0,0,0,0)');vg.addColorStop(1,'rgba(0,0,0,.35)');
+  ctx.fillStyle=vg;ctx.fillRect(0,0,W,H);
+  // progress bar
+  ctx.fillStyle='rgba(244,241,234,.12)';ctx.fillRect(96,H-40,W-192,2);
+  ctx.fillStyle=C.acc;ctx.fillRect(96,H-40,(W-192)*(t/DUR),2);
+}
+
+/* ---------- audio: synthesized 128 BPM score (WebAudio) ---------- */
+let AC=null;
+function scheduleAudio(t0,ac=AC){
+  const out=ac.createGain();out.gain.value=.55;out.connect(ac.destination);
+  const noiseBuf=ac.createBuffer(1,ac.sampleRate*.5,ac.sampleRate);
+  const d=noiseBuf.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;
+  const kick=at=>{const o=ac.createOscillator(),g=ac.createGain();o.frequency.setValueAtTime(150,at);o.frequency.exponentialRampToValueAtTime(42,at+.12);
+    g.gain.setValueAtTime(.9,at);g.gain.exponentialRampToValueAtTime(.001,at+.35);o.connect(g).connect(out);o.start(at);o.stop(at+.4)};
+  const hat=(at,v=.12)=>{const s=ac.createBufferSource(),f=ac.createBiquadFilter(),g=ac.createGain();s.buffer=noiseBuf;f.type='highpass';f.frequency.value=8000;
+    g.gain.setValueAtTime(v,at);g.gain.exponentialRampToValueAtTime(.001,at+.05);s.connect(f).connect(g).connect(out);s.start(at);s.stop(at+.06)};
+  const bass=(at,hz,len)=>{const o=ac.createOscillator(),f=ac.createBiquadFilter(),g=ac.createGain();o.type='sawtooth';o.frequency.value=hz;f.type='lowpass';f.frequency.value=420;
+    g.gain.setValueAtTime(0,at);g.gain.linearRampToValueAtTime(.22,at+.02);g.gain.setValueAtTime(.22,at+len-.05);g.gain.linearRampToValueAtTime(0,at+len);o.connect(f).connect(g).connect(out);o.start(at);o.stop(at+len)};
+  const hit=at=>{const s=ac.createBufferSource(),f=ac.createBiquadFilter(),g=ac.createGain();s.buffer=noiseBuf;f.type='bandpass';f.frequency.value=1200;
+    g.gain.setValueAtTime(.5,at);g.gain.exponentialRampToValueAtTime(.001,at+.4);s.connect(f).connect(g).connect(out);s.start(at);s.stop(at+.45)};
+  const chord=(at,len)=>[220,277.18,329.63,440].forEach(hz=>{const o=ac.createOscillator(),g=ac.createGain();o.type='triangle';o.frequency.value=hz;
+    g.gain.setValueAtTime(0,at);g.gain.linearRampToValueAtTime(.07,at+.05);g.gain.exponentialRampToValueAtTime(.001,at+len);o.connect(g).connect(out);o.start(at);o.stop(at+len)});
+  const roots=[55,55,65.41,49,55,73.42,82.41,55];
+  for(let b=0;b<32;b++){
+    const at=t0+b*BEAT,bar=Math.floor(b/4);
+    if(bar<7||b===28)kick(at);
+    if(bar<7){hat(at+BEAT/2);hat(at+BEAT*.75,.05)}
+    if(b%4===0){hit(at);if(bar<7)bass(at,roots[bar],BAR)}
+  }
+  // scene-1 bounce taps follow the dot
+  [.42,.42+.62*.95,.42+1.06*.95,.42+1.36*.95].forEach((x,i)=>hat(t0+x,.25-i*.05));
+  chord(t0+S(7)+.6,2.4);
+}
+
+/* ---------- playback ---------- */
+const params=new URLSearchParams(location.search);
+let start=performance.now(),playing=true,audioClock=null;
+function frame(now){
+  if(!playing)return;
+  let t=audioClock?(AC.currentTime-audioClock):(now-start)/1000;
+  if(t>=DUR+1){ // 1s hold, then loop
+    if(audioClock){audioClock=AC.currentTime+.05;scheduleAudio(audioClock);t=0}
+    else{start=now;t=0}
+  }
+  render(Math.min(t,DUR-1e-6));
+  requestAnimationFrame(frame);
+}
+function restart(withSound){
+  if(withSound){AC=AC||new (window.AudioContext||window.webkitAudioContext)();AC.resume();audioClock=AC.currentTime+.08;scheduleAudio(audioClock)}
+  else{audioClock=null}
+  start=performance.now();playing=true;requestAnimationFrame(frame);
+}
+document.getElementById('play').onclick=()=>{restart(true);document.getElementById('play').textContent='🔊 Ovoz yoqilgan'};
+document.getElementById('replay').onclick=()=>restart(!!AC);
+
+// capture / seek hooks: ?t=7.2 renders a still; window.__seek(t) for frame-exact export
+window.__seek=t=>{playing=false;render(t)};
+window.__DUR=DUR;
+// offline soundtrack export → base64 WAV (for MP4 muxing)
+window.__renderAudio=async()=>{
+  const sr=48000,oac=new OfflineAudioContext(2,sr*DUR,sr);scheduleAudio(0,oac);
+  const buf=await oac.startRendering(),n=buf.length,ch=[buf.getChannelData(0),buf.getChannelData(1)];
+  const dv=new DataView(new ArrayBuffer(44+n*4));const w=(o,str)=>[...str].forEach((c,i)=>dv.setUint8(o+i,c.charCodeAt(0)));
+  w(0,'RIFF');dv.setUint32(4,36+n*4,true);w(8,'WAVEfmt ');dv.setUint32(16,16,true);dv.setUint16(20,1,true);dv.setUint16(22,2,true);
+  dv.setUint32(24,sr,true);dv.setUint32(28,sr*4,true);dv.setUint16(32,4,true);dv.setUint16(34,16,true);w(36,'data');dv.setUint32(40,n*4,true);
+  for(let i=0;i<n;i++)for(let c=0;c<2;c++)dv.setInt16(44+i*4+c*2,Math.max(-1,Math.min(1,ch[c][i]))*32767,true);
+  let bin='';const u8=new Uint8Array(dv.buffer);for(let i=0;i<u8.length;i+=32768)bin+=String.fromCharCode(...u8.subarray(i,i+32768));
+  return btoa(bin);
+};
+if(params.has('t')){document.body.classList.add('capture');window.__seek(parseFloat(params.get('t')))}
+else if(matchMedia('(prefers-reduced-motion: reduce)').matches){playing=false;render(14.5)}
+else requestAnimationFrame(frame);
+</script>
+</body>
+</html>

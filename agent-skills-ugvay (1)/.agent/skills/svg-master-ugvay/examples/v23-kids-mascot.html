@@ -1,0 +1,24 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Sayyoralar sayohati (bolalar uchun)</title></head><body><script src="svgmaster.js"></script><script>
+// v2.3 kids lesson: scenery first, mascot with short text, one object per scene, analogy badge on models
+LESSON({title:'Sayyoralar sayohati', subtitle:'Bolalar uchun kosmos', subject:'Tabiatshunoslik', theme:'night', lang:'uz', music:false, level:'kid',
+ scenes:[
+  {kind:'title', say:'Salom bolalar! Bugun kosmosga sayohat qilamiz.'},
+  {title:'Bizning *uyimiz*', say:'Biz Yer sayyorasida yashaymiz. Yerda o‘rmonlar, tog‘lar va dengizlar bor.', items:[
+    {type:'scenery', kind:'forest'},
+    {type:'mascot', area:'right', pose:'wave', text:'Salom! Men sizning yo‘lboshchingizman'}]},
+  {title:'*Yer* — moviy sayyora', say:'Yer suv bilan qoplangani uchun kosmosdan moviy ko‘rinadi.', items:[
+    {type:'scenery', kind:'space', dim:.3},
+    {type:'planet', name:'earth', area:'left2', labels:true},
+    {type:'text', area:'right2', bullets:true, text:'- Suv ko‘p — moviy\n- Havo bor — nafas olamiz\n- Hayot bor'}]},
+  {title:'Halqali *Saturn*', say:'Saturnning chiroyli halqalari muz va tosh bo‘laklaridan iborat.', items:[
+    {type:'scenery', kind:'space', dim:.3},
+    {type:'planet', name:'saturn', area:'full', labels:true}]},
+  {title:'Fazo qanday *egiladi*?', say:'Katta jismlar fazoni xuddi og‘ir to‘p choyshabni egganidek egadi. Bu faqat o‘xshatish.', items:[
+    {type:'spacetime', area:'full', labels:true}]},
+  {title:'Ehtiyot bo‘ling: *Quyosh*', say:'Quyoshga hech qachon to‘g‘ridan to‘g‘ri qaramang!', items:[
+    {type:'scenery', kind:'field'},
+    {type:'mascot', area:'right', pose:'warn', text:'Quyoshga to‘g‘ri qaramang!', warn:'Ko‘zga zarar'}]},
+  {kind:'quiz', question:'Qaysi sayyorada katta halqalar bor?', options:['Mars','Saturn','Yer','Merkuriy'], answer:1},
+  {kind:'end', points:['Yer — moviy sayyora','Saturnning halqalari bor','Quyoshga qaramang']}
+ ]});
+</script></body></html>

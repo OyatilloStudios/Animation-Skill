@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Motion — PRO template (motionkit + audiokit)</title>
+<style>
+  html,body{margin:0;height:100%;background:#000;overflow:hidden}
+  body{display:flex;align-items:center;justify-content:center}
+  /* Fixed stage, letterboxed to any window. For vertical use 1080x1920 and swap the ratios. */
+  canvas{display:block;width:100vw;height:56.25vw;max-height:100vh;max-width:177.78vh}
+  #ui{position:fixed;left:16px;bottom:16px;display:flex;gap:8px}
+  #ui button{min-height:44px;padding:0 16px;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:rgba(20,20,22,.75);color:#fff;font:600 14px system-ui;cursor:pointer}
+  body.capture #ui{display:none}
+</style>
+</head>
+<body>
+<canvas id="c" width="1920" height="1080"></canvas>
+<div id="ui"><button id="play">▶ Play with sound</button><button id="replay">↺ Replay</button></div>
+<script>
+/* ================= MOTIONKIT v2 — paste inside <script> before your scenes =================
+   Pure, deterministic helpers. Every function depends only on its inputs (no real clock, no Math.random). */
+
+/* ---------- math ---------- */
+const clamp=(x,a=0,b=1)=>Math.min(b,Math.max(a,x));
+const lerp=(a,b,t)=>a+(b-a)*t;
+const prog=(t,a,b)=>clamp((t-a)/(b-a));                    // 0..1 inside window [a,b]
+const smoothstep=(a,b,x)=>{const t=clamp((x-a)/(b-a));return t*t*(3-2*t)};
+const mapRange=(x,a,b,c,d)=>c+(d-c)*clamp((x-a)/(b-a));
+const TAU=Math.PI*2;
+
+/* ---------- easing ---------- */
+const E={
+  linear:t=>t,
+  inQuad:t=>t*t, outQuad:t=>1-(1-t)**2, inOutQuad:t=>t<.5?2*t*t:1-(-2*t+2)**2/2,
+  inCubic:t=>t**3, outCubic:t=>1-(1-t)**3, inOutCubic:t=>t<.5?4*t**3:1-(-2*t+2)**3/2,
+  inQuart:t=>t**4, outQuart:t=>1-(1-t)**4, inOutQuart:t=>t<.5?8*t**4:1-(-2*t+2)**4/2,
+  inQuint:t=>t**5, outQuint:t=>1-(1-t)**5, inOutQuint:t=>t<.5?16*t**5:1-(-2*t+2)**5/2,
+  inExpo:t=>t<=0?0:2**(10*t-10), outExpo:t=>t>=1?1:1-2**(-10*t),
+  inOutExpo:t=>t<=0?0:t>=1?1:t<.5?2**(20*t-10)/2:(2-2**(-20*t+10))/2,
+  inCirc:t=>1-Math.sqrt(1-t*t), outCirc:t=>Math.sqrt(1-(t-1)**2),
+  inBack:t=>2.70158*t**3-1.70158*t*t, outBack:t=>1+2.70158*(t-1)**3+1.70158*(t-1)**2,
+  outElastic:t=>t<=0?0:t>=1?1:2**(-10*t)*Math.sin((t*10-.75)*TAU/3)+1,
+  outBounce:t=>{const n=7.5625,d=2.75;if(t<1/d)return n*t*t;if(t<2/d)return n*(t-=1.5/d)*t+.75;if(t<2.5/d)return n*(t-=2.25/d)*t+.9375;return n*(t-=2.625/d)*t+.984375},
+};
+// CSS-style cubic-bezier(x1,y1,x2,y2) → easing fn (Newton + bisection)
+function cubicBezier(x1,y1,x2,y2){
+  const cx=3*x1,bx=3*(x2-x1)-cx,ax=1-cx-bx,cy=3*y1,by=3*(y2-y1)-cy,ay=1-cy-by;
+  const sx=t=>((ax*t+bx)*t+cx)*t, sy=t=>((ay*t+by)*t+cy)*t, dx=t=>(3*ax*t+2*bx)*t+cx;
+  return x=>{if(x<=0)return 0;if(x>=1)return 1;let t=x;
+    for(let i=0;i<8;i++){const e=sx(t)-x;if(Math.abs(e)<1e-6)return sy(t);const d=dx(t);if(Math.abs(d)<1e-6)break;t-=e/d}
+    let a=0,b=1;t=x;for(let i=0;i<30;i++){const v=sx(t);if(Math.abs(v-x)<1e-6)break;v<x?a=t:b=t;t=(a+b)/2}return sy(t)};
+}
+E.apple=cubicBezier(.25,.1,.25,1); E.material=cubicBezier(.4,0,.2,1); E.snappy=cubicBezier(.16,1,.3,1);
+// damped spring, closed form (critically/under-damped). t in seconds, returns 0→1
+function spring(t,{stiffness=170,damping=18,mass=1}={}){
+  if(t<=0)return 0;const w0=Math.sqrt(stiffness/mass),z=damping/(2*Math.sqrt(stiffness*mass));
+  if(z<1){const wd=w0*Math.sqrt(1-z*z);return 1-Math.exp(-z*w0*t)*(Math.cos(wd*t)+z*w0/wd*Math.sin(wd*t))}
+  return 1-Math.exp(-w0*t)*(1+w0*t);
+}
+// keyframes: kf(t,[[0,0],[0.5,100,E.outBack],[1.2,40,E.inOutCubic]]) → value; easing belongs to the segment ending at that key
+function kf(t,keys){
+  if(t<=keys[0][0])return keys[0][1];
+  for(let i=1;i<keys.length;i++){const [t1,v1,ez=E.inOutCubic]=keys[i],[t0,v0]=keys[i-1];
+    if(t<=t1)return lerp(v0,v1,ez((t-t0)/(t1-t0)))}
+  return keys.at(-1)[1];
+}
+
+/* ---------- deterministic randomness & noise ---------- */
+const rnd=i=>{const x=Math.sin(i*127.1+311.7)*43758.5453;return x-Math.floor(x)};      // hash 0..1
+function mulberry32(seed){return()=>{seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);
+  t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}                  // seeded PRNG for setup only
+const _h=(x,y,z=0)=>{const s=Math.sin(x*127.1+y*311.7+z*74.7)*43758.5453;return s-Math.floor(s)};
+const _f=t=>t*t*t*(t*(t*6-15)+10);
+function noise3(x,y,z=0){ // smooth value noise, -1..1
+  const xi=Math.floor(x),yi=Math.floor(y),zi=Math.floor(z),xf=_f(x-xi),yf=_f(y-yi),zf=_f(z-zi);
+  const L=(a,b,t)=>a+(b-a)*t, c=(i,j,k)=>_h(xi+i,yi+j,zi+k);
+  return L(L(L(c(0,0,0),c(1,0,0),xf),L(c(0,1,0),c(1,1,0),xf),yf),L(L(c(0,0,1),c(1,0,1),xf),L(c(0,1,1),c(1,1,1),xf),yf),zf)*2-1;
+}
+const fbm=(x,y,z=0,oct=4)=>{let v=0,a=.5,f=1;for(let i=0;i<oct;i++){v+=a*noise3(x*f,y*f,z*f);f*=2;a*=.5}return v};
+function curl(x,y,z=0,e=.01){ // divergence-free flow → smooth swirling particles
+  const dx=(noise3(x,y+e,z)-noise3(x,y-e,z))/(2*e), dy=(noise3(x+e,y,z)-noise3(x-e,y,z))/(2*e);
+  return [dx,-dy];
+}
+
+/* ---------- color ---------- */
+const hex2rgb=h=>{const n=parseInt(h.slice(1),16);return[n>>16&255,n>>8&255,n&255]};
+const mixColor=(a,b,t)=>{const A=hex2rgb(a),B=hex2rgb(b);return`rgb(${A.map((v,i)=>Math.round(lerp(v,B[i],t))).join(',')})`};
+const rgba=(h,a)=>{const[r,g,b]=hex2rgb(h);return`rgba(${r},${g},${b},${a})`};
+
+/* ---------- text ---------- */
+// scramble/decode ("crypto") text: settles left→right; deterministic glyphs per frame
+function scramble(str,p,{chars='ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789#%&*+=<>/',frame=0,spread=.35}={}){
+  return [...str].map((c,i)=>{if(c===' ')return' ';const at=i/str.length*(1-spread);
+    if(p>=at+spread)return c; if(p<at)return ' '; return chars[Math.floor(rnd(i*13.7+frame)*chars.length)];}).join('');
+}
+// DRAW scramble with every glyph locked to its FINAL position (no layout jumping). align: 'left'|'center'|'right'
+function drawScramble(ctx,str,x,y,p,{font,color='#fff',track=0,align='center',frame=0,chars,spread=.35}={}){
+  ctx.save();ctx.font=font;ctx.fillStyle=color;ctx.textAlign='left';ctx.letterSpacing='0px';
+  const chs=[...str],pre=i=>ctx.measureText(chs.slice(0,i).join('')).width+track*i; // prefix widths keep kerning
+  const total=pre(chs.length)-track,x0=align==='center'?x-total/2:align==='right'?x-total:x;
+  const shown=scramble(str,p,{frame,chars,spread});
+  chs.forEach((c,i)=>{const g=shown[i];if(g===' ')return;
+    const slot=pre(i+1)-track-pre(i),gw=ctx.measureText(g).width;ctx.fillText(g,x0+pre(i)+(slot-gw)/2,y)}); // glyph centered in its final slot
+  ctx.restore();
+}
+// CENTERED text with letterSpacing: canvas adds trailing spacing → shift left by track/2
+function textC(ctx,s,x,y,font,color,track=0){ctx.save();ctx.font=font;ctx.fillStyle=color;ctx.textAlign='center';ctx.letterSpacing=track+'px';ctx.fillText(s,x-track/2,y);ctx.restore()}
+// measure with letterSpacing; returns width without trailing spacing
+function measure(ctx,s,font,track=0){ctx.save();ctx.font=font;ctx.letterSpacing=track+'px';const w=ctx.measureText(s).width-track;ctx.restore();return w}
+// sample filled pixels of text/shape into points (for particle formations). Call once at load.
+function samplePoints(drawFn,w,h,step=6){
+  const c=document.createElement('canvas');c.width=w;c.height=h;const g=c.getContext('2d');drawFn(g);
+  const d=g.getImageData(0,0,w,h).data,pts=[];
+  for(let y=0;y<h;y+=step)for(let x=0;x<w;x+=step)if(d[(y*w+x)*4+3]>128)pts.push([x,y]);return pts;
+}
+// word wrap to max width
+function wrap(ctx,text,maxW){const words=text.split(' '),lines=[];let line='';
+  for(const w of words){const t=line?line+' '+w:w;if(ctx.measureText(t).width>maxW&&line){lines.push(line);line=w}else line=t}
+  if(line)lines.push(line);return lines}
+
+/* ---------- images & video (load once, then draw from render(t)) ---------- */
+const ASSETS={};
+function loadImage(key,src){return new Promise((res,rej)=>{const im=new Image();im.onload=()=>{ASSETS[key]=im;res(im)};im.onerror=()=>rej(new Error('image failed: '+src));im.src=src})}
+// draw image like CSS object-fit: cover, with optional Ken Burns zoom (s) and pan (px,py in -1..1)
+function drawCover(ctx,im,x,y,w,h,s=1,px=0,py=0){
+  const r=Math.max(w/im.width,h/im.height)*s,iw=im.width*r,ih=im.height*r;
+  ctx.save();ctx.beginPath();ctx.rect(x,y,w,h);ctx.clip();
+  ctx.drawImage(im,x+(w-iw)/2+px*(iw-w)/2,y+(h-ih)/2+py*(ih-h)/2,iw,ih);ctx.restore();
+}
+// video frames must be seeked and awaited before capture
+async function seekVideo(v,t){if(Math.abs(v.currentTime-t)<1e-3)return;await new Promise(r=>{v.onseeked=r;v.currentTime=t})}
+
+/* ---------- canvas helpers ---------- */
+function glow(ctx,color,blur,fn){ctx.save();ctx.shadowColor=color;ctx.shadowBlur=blur;fn();ctx.restore()}
+function additive(ctx,fn){ctx.save();ctx.globalCompositeOperation='lighter';fn();ctx.restore()}
+function withAlpha(ctx,a,fn){ctx.save();ctx.globalAlpha*=a;fn();ctx.restore()}
+
+/* ================= AUDIOKIT v2 — deterministic WebAudio score =================
+   Works in AudioContext (live) and OfflineAudioContext (export). Needs BPM/BEAT/BAR constants.
+   Usage:  const A=makeMixer(ac); A.kick(at); A.pad(at,chord('A','minor',3),len); ... */
+function makeMixer(ac){
+  // --- buses: drums / music / fx → master (compressor + limiter-ish) ---
+  const master=ac.createGain();master.gain.value=1;const out=ac.createGain();out.gain.value=.55; // output trim after limiter → mean ≈ -18 dB, peak ≤ -3 dB
+  const comp=ac.createDynamicsCompressor();comp.threshold.value=-14;comp.knee.value=8;comp.ratio.value=4;comp.attack.value=.003;comp.release.value=.2;
+  const lim=ac.createDynamicsCompressor();lim.threshold.value=-2;lim.knee.value=0;lim.ratio.value=20;lim.attack.value=.001;lim.release.value=.05;
+  master.connect(comp).connect(lim).connect(out).connect(ac.destination);
+  const bus=n=>{const g=ac.createGain();g.gain.value=n;g.connect(master);return g};
+  const drums=bus(.9),music=bus(.6),fx=bus(.7);
+  // --- reverb: generated impulse (seeded) ---
+  const rev=ac.createConvolver(),len=ac.sampleRate*2.2,ir=ac.createBuffer(2,len,ac.sampleRate);
+  for(let c=0;c<2;c++){const d=ir.getChannelData(c);for(let i=0;i<len;i++){const r=Math.sin((i+c*7919)*12.9898)*43758.5453;d[i]=((r-Math.floor(r))*2-1)*Math.pow(1-i/len,3)}}
+  rev.buffer=ir;const revRet=ac.createGain();revRet.gain.value=.35;rev.connect(revRet).connect(master);
+  const send=(node,amt)=>{const g=ac.createGain();g.gain.value=amt;node.connect(g).connect(rev)};
+  send(music,.5);send(fx,.4);
+  // --- seeded noise buffer ---
+  const nb=ac.createBuffer(1,ac.sampleRate,ac.sampleRate),nd=nb.getChannelData(0);
+  for(let i=0;i<nd.length;i++){const r=Math.sin(i*78.233)*43758.5453;nd[i]=(r-Math.floor(r))*2-1}
+  // --- click-free envelope: ALWAYS ramp from/to ~0 (never jump gain) ---
+  const env=(g,at,a,peak,hold,rel)=>{g.gain.setValueAtTime(0.0001,at);g.gain.exponentialRampToValueAtTime(peak,at+a);
+    g.gain.setValueAtTime(peak,at+a+hold);g.gain.exponentialRampToValueAtTime(0.0001,at+a+hold+rel)};
+  const pan=(node,p)=>{const s=ac.createStereoPanner();s.pan.value=p;node.connect(s);return s};
+  const noiseSrc=(at,dur)=>{const s=ac.createBufferSource();s.buffer=nb;s.loop=true;s.start(at);s.stop(at+dur+.05);return s};
+  // --- sidechain: duck music bus on each kick (pumping) ---
+  const duck=(at,depth=.55,rel=.22)=>{music.gain.setValueAtTime(.6,at);music.gain.linearRampToValueAtTime(.6*(1-depth),at+.01);music.gain.linearRampToValueAtTime(.6,at+rel)};
+  const A={ac,master,drums,music,fx,nb,
+    // play a decoded sample from the user's library (see SFX library section). opts: gain, rate, pan, bus, offset (s into file), hitAt (s of the transient inside the file)
+    sample(at,buf,{gain=1,rate=1,pan:p=0,bus='fx',offset=0,hitAt=0,dur,fadeOut=.03,reverb=0}={}){
+      const s=ac.createBufferSource(),g=ac.createGain(),sp=ac.createStereoPanner();s.buffer=buf;s.playbackRate.value=rate;sp.pan.value=p;
+      const start=Math.max(0,at-hitAt/rate),len=dur??(buf.duration-offset)/rate;
+      g.gain.setValueAtTime(gain,start);g.gain.setValueAtTime(gain,start+Math.max(0,len-fadeOut));g.gain.linearRampToValueAtTime(0,start+len);
+      s.connect(g).connect(sp).connect(A[bus]);if(reverb)send(g,reverb);s.start(start,offset,len*rate+.01)},
+    kick(at,v=1){const o=ac.createOscillator(),g=ac.createGain();o.frequency.setValueAtTime(160,at);o.frequency.exponentialRampToValueAtTime(45,at+.11);
+      env(g,at,.002,v,.02,.32);o.connect(g).connect(drums);o.start(at);o.stop(at+.4);
+      const c=noiseSrc(at,.01),cf=ac.createBiquadFilter(),cg=ac.createGain();cf.type='highpass';cf.frequency.value=3000;env(cg,at,.001,.15*v,0,.012);c.connect(cf).connect(cg).connect(drums);duck(at)},
+    snare(at,v=.6){const s=noiseSrc(at,.25),f=ac.createBiquadFilter(),g=ac.createGain();f.type='bandpass';f.frequency.value=1900;f.Q.value=.8;env(g,at,.001,v,.0,.18);s.connect(f).connect(g).connect(drums);send(g,.25);
+      const o=ac.createOscillator(),og=ac.createGain();o.frequency.setValueAtTime(220,at);o.frequency.exponentialRampToValueAtTime(140,at+.08);env(og,at,.001,v*.5,0,.1);o.connect(og).connect(drums);o.start(at);o.stop(at+.15)},
+    clap(at,v=.5){[0,.01,.022].forEach(d=>{const s=noiseSrc(at+d,.12),f=ac.createBiquadFilter(),g=ac.createGain();f.type='bandpass';f.frequency.value=1200;env(g,at+d,.001,v,0,d<.02?.03:.12);s.connect(f).connect(g).connect(drums);send(g,.3)})},
+    hat(at,v=.12,open=false,p=.25){const s=noiseSrc(at,.3),f=ac.createBiquadFilter(),g=ac.createGain();f.type='highpass';f.frequency.value=8500;env(g,at,.001,v,0,open?.22:.04);s.connect(f).connect(g);pan(g,p).connect(drums)},
+    bass(at,hz,len,v=.35){const o=ac.createOscillator(),o2=ac.createOscillator(),f=ac.createBiquadFilter(),g=ac.createGain();o.type='sawtooth';o2.type='square';o.frequency.value=hz;o2.frequency.value=hz/2;
+      f.type='lowpass';f.Q.value=6;f.frequency.setValueAtTime(900,at);f.frequency.exponentialRampToValueAtTime(220,at+len*.8);
+      env(g,at,.01,v,Math.max(0,len-.09),.06);o.connect(f);o2.connect(f);f.connect(g).connect(music);o.start(at);o2.start(at);o.stop(at+len+.1);o2.stop(at+len+.1)},
+    pad(at,freqs,len,v=.05){freqs.forEach((hz,i)=>[-6,6].forEach(cents=>{const o=ac.createOscillator(),g=ac.createGain(),f=ac.createBiquadFilter();o.type='sawtooth';o.frequency.value=hz;o.detune.value=cents;
+      f.type='lowpass';f.frequency.value=1800;env(g,at,Math.min(.6,len*.3),v,Math.max(0,len*.4),len*.5);o.connect(f).connect(g);pan(g,cents>0?.4:-.4).connect(music);o.start(at);o.stop(at+len+.1)}))},
+    pluck(at,hz,v=.12,p=0){const o=ac.createOscillator(),g=ac.createGain(),f=ac.createBiquadFilter();o.type='triangle';o.frequency.value=hz;f.type='lowpass';f.frequency.setValueAtTime(4000,at);f.frequency.exponentialRampToValueAtTime(400,at+.3);
+      env(g,at,.003,v,0,.35);o.connect(f).connect(g);pan(g,p).connect(music);o.start(at);o.stop(at+.45)},
+    blip(at,hz=1320,v=.08,p=0){const o=ac.createOscillator(),g=ac.createGain();o.type='sine';o.frequency.value=hz;env(g,at,.002,v,0,.09);o.connect(g);pan(g,p).connect(fx);o.start(at);o.stop(at+.12)},
+    riser(at,len,v=.3){const s=noiseSrc(at,len),f=ac.createBiquadFilter(),g=ac.createGain();f.type='bandpass';f.Q.value=5;f.frequency.setValueAtTime(250,at);f.frequency.exponentialRampToValueAtTime(7000,at+len);
+      g.gain.setValueAtTime(.0001,at);g.gain.exponentialRampToValueAtTime(v,at+len);g.gain.exponentialRampToValueAtTime(.0001,at+len+.03);s.connect(f).connect(g).connect(fx)},
+    whoosh(cut,v=.35,len=.35){const at=cut-len,s=noiseSrc(at,len+.1),f=ac.createBiquadFilter(),g=ac.createGain(),p=ac.createStereoPanner();f.type='bandpass';f.Q.value=2;
+      f.frequency.setValueAtTime(400,at);f.frequency.exponentialRampToValueAtTime(5000,cut);p.pan.setValueAtTime(-.8,at);p.pan.linearRampToValueAtTime(.8,cut+.05);
+      g.gain.setValueAtTime(.0001,at);g.gain.exponentialRampToValueAtTime(v,cut-.02);g.gain.exponentialRampToValueAtTime(.0001,cut+.12);s.connect(f).connect(g).connect(p).connect(fx)},
+    impact(at,v=.9){A.kick(at,v);const o=ac.createOscillator(),g=ac.createGain();o.frequency.setValueAtTime(70,at);o.frequency.exponentialRampToValueAtTime(32,at+1.4);env(g,at,.003,v*.7,.05,1.4);o.connect(g).connect(drums);o.start(at);o.stop(at+1.6);
+      const s=noiseSrc(at,1.2),f=ac.createBiquadFilter(),ng=ac.createGain();f.type='lowpass';f.frequency.setValueAtTime(6000,at);f.frequency.exponentialRampToValueAtTime(300,at+1);env(ng,at,.002,.35*v,0,1);s.connect(f).connect(ng).connect(fx)},
+    reverseSwell(hit,len=1.2,v=.25){const s=noiseSrc(hit-len,len),f=ac.createBiquadFilter(),g=ac.createGain();f.type='lowpass';f.frequency.setValueAtTime(300,hit-len);f.frequency.exponentialRampToValueAtTime(8000,hit);
+      g.gain.setValueAtTime(.0001,hit-len);g.gain.exponentialRampToValueAtTime(v,hit-.01);g.gain.setValueAtTime(.0001,hit);s.connect(f).connect(g).connect(fx)},
+    tick(at,v=.06){const o=ac.createOscillator(),g=ac.createGain();o.type='square';o.frequency.value=2400;env(g,at,.0005,v,0,.015);o.connect(g).connect(fx);o.start(at);o.stop(at+.03)},
+  };
+  return A;
+}
+/* ---------- music theory ---------- */
+const NOTE={C:0,'C#':1,D:2,'D#':3,E:4,F:5,'F#':6,G:7,'G#':8,A:9,'A#':10,B:11};
+const hz=(name,oct=4)=>440*2**((NOTE[name]+12*(oct+1)-69)/12);           // hz('A',4)=440
+const SCALE={major:[0,2,4,5,7,9,11],minor:[0,2,3,5,7,8,10],dorian:[0,2,3,5,7,9,10],penta:[0,3,5,7,10]};
+const CHORD={major:[0,4,7],minor:[0,3,7],maj7:[0,4,7,11],min7:[0,3,7,10],sus2:[0,2,7],sus4:[0,5,7],add9:[0,4,7,14]};
+const chord=(root,type='minor',oct=3)=>CHORD[type].map(s=>hz(root,oct)*2**(s/12));
+const scaleNote=(root,scale,deg,oct=4)=>{const s=SCALE[scale],n=s.length;return hz(root,oct)*2**((s[((deg%n)+n)%n]+12*Math.floor(deg/n))/12)};
+// Progressions that always sound good (minor key i–VI–III–VII): Am F C G
+const PROG={epic:[['A','minor'],['F','major'],['C','major'],['G','major']],
+  calm:[['C','maj7'],['A','min7'],['F','maj7'],['G','sus4']],
+  dark:[['D','minor'],['A#','major'],['F','major'],['C','major']],
+  tech:[['E','minor'],['C','major'],['G','major'],['D','major']]};
+
+/* ---------- user SFX library ---------- */
+// manifest: [{id,file,tags:[...],hitAt,gain,bpm,key,loop}]  — file paths relative to the HTML, or data: URIs
+async function loadLibrary(ac,manifest){
+  const lib={};
+  await Promise.all(manifest.map(async m=>{
+    const res=await fetch(m.file); if(!res.ok)throw new Error('sfx missing: '+m.file);
+    lib[m.id]={...m,buf:await ac.decodeAudioData(await res.arrayBuffer())};
+  }));
+  return lib;
+}
+// pick the best sound for a cue by tags (deterministic). cue: 'whoosh'|'impact'|'riser'|'click'|'pop'|'swish'|'glitch'|'type'|'ui'|'logo'|'transition'...
+function pickSfx(lib,want,seed=0){
+  const W=[].concat(want);const scored=Object.values(lib).map(s=>[s,W.filter(w=>s.tags.includes(w)).length]).filter(x=>x[1]>0)
+    .sort((a,b)=>b[1]-a[1]||a[0].id.localeCompare(b[0].id));
+  if(!scored.length)return null;const top=scored.filter(x=>x[1]===scored[0][1]);return top[Math.floor(rnd(seed)*top.length)][0];
+}
+
+/* ============ CONFIG ============ */
+const W=1920,H=1080,FPS=30,BPM=120,BEAT=60/BPM,BAR=BEAT*4;
+const C={bg:'#0B0B0D',ink:'#F4F1EA',dim:'rgba(244,241,234,.55)',acc:'#FF4A1C'};
+const FONT='-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif';
+const MONO='Menlo,Consolas,"Courier New",monospace';
+// Optional user SFX library (leave [] to use synthesized sounds). See Sound reference §7.
+const SFX_MANIFEST=[];
+// Optional images: [['hero','assets/hero.jpg'], ...]
+const IMAGES=[];
+const SCENES=[ // [start, duration, fn]
+  [0,     BAR*2, sParticlesToText],
+  [BAR*2, BAR*2, sScramble],
+  [BAR*4, BAR*2, sOutro],
+];
+const DUR=SCENES.at(-1)[0]+SCENES.at(-1)[1];
+const cv=document.getElementById('c'),ctx=cv.getContext('2d');
+
+/* ============ PRECOMPUTE (once) ============ */
+const TARGET=samplePoints(g=>{g.fillStyle='#fff';g.font=`900 260px ${FONT}`;g.textAlign='center';g.fillText('MOTION',960,630)},W,H,6);
+const PS=TARGET.map((_,i)=>({x:rnd(i)*W,y:rnd(i+.37)*H,d:rnd(i+.71)*.35,s:1.6+rnd(i+.13)*1.6}));
+
+/* ============ SCENES ============ */
+function bg(c=C.bg){ctx.fillStyle=c;ctx.fillRect(0,0,W,H)}
+function sParticlesToText(lt,d){
+  bg();
+  const a=prog(lt,.6,2.8),solid=prog(lt,2.85,3.2);
+  withAlpha(ctx,1-solid,()=>additive(ctx,()=>{for(let i=0;i<PS.length;i++){const p=PS[i];
+    const [vx,vy]=curl(p.x*.003,p.y*.003,lt*.25);const fx=p.x+vx*90*lt,fy=p.y+vy*90*lt;
+    const k=E.inOutCubic(clamp((a-p.d)/(1-.35)));
+    ctx.fillStyle=k>.99?C.ink:rgba(C.acc,.35+.55*k);ctx.fillRect(lerp(fx,TARGET[i][0],k),lerp(fy,TARGET[i][1],k),p.s,p.s)}}));
+  // crisp resolve: crossfade particles → real text
+  if(solid>0)withAlpha(ctx,solid,()=>textC(ctx,'MOTION',960,630,`900 260px ${FONT}`,C.ink));
+  textC(ctx,'01 — PARTICLES',960,980,`600 22px ${FONT}`,C.dim,6);
+}
+function sScramble(lt,d){
+  bg();
+  drawScramble(ctx,'DECODE THE FUTURE',960,560,prog(lt,.15,1.7),{font:`700 104px ${MONO}`,color:C.ink,frame:Math.floor(lt*24)});
+  const u=E.outExpo(prog(lt,1.7,2.4));ctx.fillStyle=C.acc;ctx.fillRect(960-420*u,610,840*u,6);
+  textC(ctx,'02 — SCRAMBLE',960,980,`600 22px ${FONT}`,C.dim,6);
+}
+function sOutro(lt,d){
+  bg();
+  const s=spring(lt-.2,{stiffness:220,damping:14});
+  ctx.save();ctx.translate(960,520);ctx.scale(s,s);ctx.beginPath();ctx.arc(0,0,60,0,TAU);ctx.fillStyle=C.acc;ctx.fill();ctx.restore();
+  const p=E.outExpo(prog(lt,.6,1.4));ctx.save();ctx.beginPath();ctx.rect(0,600,W,140);ctx.clip();
+  textC(ctx,'your name',960,lerp(820,700,p),`800 96px ${FONT}`,C.ink,-2);ctx.restore();
+}
+
+/* ============ MASTER render(t) ============ */
+function render(t){
+  t=clamp(t,0,DUR-1e-6);
+  const s=SCENES.find(([a,d])=>t>=a&&t<a+d)||SCENES.at(-1);
+  ctx.save();s[2](t-s[0],s[1]);ctx.restore();
+}
+
+/* ============ AUDIO SCORE ============ */
+function scheduleAudio(t0,ac,lib={}){
+  const A=makeMixer(ac),BARS=Math.round(DUR/BAR);
+  for(let bar=0;bar<BARS;bar++){const at=t0+bar*BAR,[r,ty]=PROG.tech[bar%4];
+    A.pad(at,chord(r,ty,3),BAR);
+    if(bar>=1){A.bass(at,hz(r,1),BEAT*1.5);A.bass(at+BEAT*2,hz(r,1),BEAT*1.5)}
+    for(let b=0;b<4;b++){if(bar>=1&&bar<BARS-1)A.kick(at+b*BEAT);A.hat(at+b*BEAT+BEAT/2,.08)}}
+  SCENES.forEach(([s],i)=>{if(!s)return;const w=pickSfx(lib,['whoosh','transition'],i);
+    w?A.sample(t0+s,w.buf,{gain:w.gain,hitAt:w.hitAt}):A.whoosh(t0+s)});
+  for(let k=0;k<40;k++)A.tick(t0+BAR*2+.15+k*.04,.03);                 // scramble ticks
+  const hit=SCENES[2][0]+.2,im=pickSfx(lib,['impact','logo']);
+  A.reverseSwell(t0+hit);im?A.sample(t0+hit,im.buf,{gain:im.gain,hitAt:im.hitAt,bus:'drums'}):A.impact(t0+hit);
+}
+
+/* ============ PLAYBACK + EXPORT HOOKS (keep) ============ */
+let AC=null,LIB={},start=performance.now(),playing=true,audioClock=null;
+function frame(now){if(!playing)return;let t=audioClock?AC.currentTime-audioClock:(now-start)/1000;
+  if(t>=DUR+1){if(audioClock){audioClock=AC.currentTime+.05;scheduleAudio(audioClock,AC,LIB)}else start=now;t=0}
+  render(Math.min(t,DUR-1e-6));requestAnimationFrame(frame)}
+async function restart(sound){if(sound){AC=AC||new AudioContext();await AC.resume();if(SFX_MANIFEST.length&&!Object.keys(LIB).length)LIB=await loadLibrary(AC,SFX_MANIFEST);
+  audioClock=AC.currentTime+.08;scheduleAudio(audioClock,AC,LIB)}else audioClock=null;start=performance.now();playing=true;requestAnimationFrame(frame)}
+document.getElementById('play').onclick=()=>restart(true);
+document.getElementById('replay').onclick=()=>restart(!!AC);
+window.__DUR=DUR;window.__FPS=FPS;window.__ready=false;
+window.__seek=t=>{playing=false;render(t)};
+window.__renderAudio=async()=>{const sr=48000,oac=new OfflineAudioContext(2,Math.ceil(sr*(DUR+.5)),sr);
+  const lib=SFX_MANIFEST.length?await loadLibrary(oac,SFX_MANIFEST):{};scheduleAudio(0,oac,lib);
+  const buf=await oac.startRendering(),n=buf.length,ch=[buf.getChannelData(0),buf.getChannelData(1)];
+  const dv=new DataView(new ArrayBuffer(44+n*4)),w=(o,s)=>[...s].forEach((c,i)=>dv.setUint8(o+i,c.charCodeAt(0)));
+  w(0,'RIFF');dv.setUint32(4,36+n*4,true);w(8,'WAVEfmt ');dv.setUint32(16,16,true);dv.setUint16(20,1,true);dv.setUint16(22,2,true);
+  dv.setUint32(24,sr,true);dv.setUint32(28,sr*4,true);dv.setUint16(32,4,true);dv.setUint16(34,16,true);w(36,'data');dv.setUint32(40,n*4,true);
+  for(let i=0;i<n;i++)for(let c=0;c<2;c++)dv.setInt16(44+i*4+c*2,clamp(ch[c][i],-1,1)*32767,true);
+  let bin='';const u8=new Uint8Array(dv.buffer);for(let i=0;i<u8.length;i+=32768)bin+=String.fromCharCode(...u8.subarray(i,i+32768));return btoa(bin)};
+const q=new URLSearchParams(location.search);
+Promise.all([document.fonts.ready,...IMAGES.map(([k,src])=>loadImage(k,src))]).then(()=>{
+  window.__ready=true;
+  if(q.has('t')){document.body.classList.add('capture');window.__seek(+q.get('t'))}
+  else if(matchMedia('(prefers-reduced-motion: reduce)').matches){playing=false;render(DUR-.5)}
+  else requestAnimationFrame(frame);
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,29 @@
+<!doctype html><html><head><meta charset="utf-8"><title>SVG Master Ugvay v2</title></head><body>
+<script src="svgmaster.js"></script>
+<script>
+LESSON({title:'SVG Master Ugvay *v2*',subtitle:'Bio/Med atlas · Camera Master · 3D',subject:'Biologiya · Kimyo · Geometriya',theme:'bio',handheld:true,brand:'UGVAY',scenes:[
+ {kind:'title'},
+ {title:'Nafas: *o‘pka*',say:'Nafas olganda diafragma qisqarib pastga tushadi. Havo traxeya va bronxlar orqali alveolalarga boradi.',
+  camera:[{t:3.2,dur:1.6,on:'@l.alveoli',zoom:1.5}],items:[{type:'lungs',id:'l',area:'full',labels:['trachea','bronchus','alveoli','diaphragm']}]},
+ {title:'Alveolada *gaz almashinuvi*',dive:'@l.alveoli',say:'Kislorod diffuziya orqali alveoladan qonga, karbonat angidrid esa qondan alveolaga o‘tadi.',
+  items:[{type:'alveolus',id:'a',area:'full',labels:true}]},
+ {title:'Hujayra *lupa* ostida',transition:'iris',say:'Kislorod hujayraga yetib boradi. Uni mitoxondriya ishlatadi — keling, yaqinroq qaraymiz.',
+  items:[{type:'cell',id:'c',area:'left',labels:false},{type:'magnifier',on:'@c.mitochondria',zoom:3,text:'Mitoxondriya',at:1.2}]},
+ {title:'*Mitoxondriya* — energiya stansiyasi',dive:'@c.mitochondria',say:'Ichki membrana burmalari — kristalar. ATF-sintaza shu yerda ATF hosil qiladi.',
+  camera:[{t:3,dur:1.4,on:'@m.cristae',zoom:1.6},{t:6.5,dur:1.2,zoom:1}],items:[{type:'mitochondrion',id:'m',area:'full',labels:true}]},
+ {title:'Na⁺/K⁺ *nasos*',transition:'whip',say:'Bir molekula ATF hisobiga nasos uchta natriy ionini tashqariga, ikkita kaliy ionini ichkariga chiqaradi.',
+  items:[{type:'transport',kind:'pump',area:'full',labels:true}]},
+ {title:'3D: *suv molekulasi*',transition:'iris',say:'Suv molekulasi burchakli: bog‘lar orasidagi burchak 104,5 daraja. Metan esa tetraedr shaklida.',
+  items:[{type:'mol3d',preset:'H2O',area:'left',angle:true},{type:'mol3d',preset:'CH4',area:'right',with:true,angle:true}]},
+ {title:'3D: *DNK* va kristall',transition:'whip',say:'DNK qo‘sh spirali aylanadi: adenin timin bilan, guanin sitozin bilan juftlashadi. Osh tuzi kristalida natriy va xlor ionlari navbatlashadi.',
+  items:[{type:'dna3d',area:'left',unzip:4},{type:'lattice',area:'right',with:true}]},
+ {title:'Stereometriya: *kub*',say:'Kub hajmi a kub ga teng. Ko‘rinmas qirralar shtrix chiziq bilan chiziladi.',
+  items:[{type:'solid',shape:'cube',area:'left',labels:true,view:[{t:3,dur:2,pitch:35,zoom:1.1}]},{type:'formula',area:'right',tex:'V = a^3',size:120,boxed:true}]},
+ {title:'*Yer* va Quyosh tizimi',transition:'iris',say:'Yer o‘qi 23,4 darajaga og‘gan — shuning uchun fasllar almashadi.',
+  items:[{type:'globe',area:'left',pins:[{lat:41.3,lon:69.2,text:'Toshkent'}],lon:-75,rotate:12},{type:'solar3d',area:'right',with:true,planets:6}]},
+ {title:'Kamera *kuzatadi*',transition:'whip',say:'Kamera harakatlanayotgan jismni kuzatib boradi va zarbada silkinadi.',
+  camera:[{t:.8,dur:1,follow:'@pr',zoom:1.7},{t:4.6,dur:.8,zoom:1}],shake:[{t:4.2,dur:.6,amp:22}],items:[{type:'projectile',id:'pr',area:'full',v0:18,angle:55}]},
+ {kind:'quiz',question:'Na⁺/K⁺-nasos bir ATF hisobiga nechta Na⁺ ni tashqariga chiqaradi?',options:['1','2','3','4'],answer:2,think:3,explain:'*3 Na⁺* tashqariga, *2 K⁺* ichkariga.'},
+ {kind:'end',points:['Organ → hujayra → organoid: dive o‘tishi','Lupa, spotlight, kuzatuvchi kamera','3D molekula, DNK, jismlar, globus']}
+]});
+</script></body></html>

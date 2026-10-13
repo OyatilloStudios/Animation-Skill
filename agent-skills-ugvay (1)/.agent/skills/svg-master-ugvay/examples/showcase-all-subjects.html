@@ -1,0 +1,50 @@
+<!doctype html><html><head><meta charset="utf-8"><title>SVG Master Ugvay — demo</title></head><body>
+<script src="svgmaster.js"></script>
+<script>
+LESSON({
+  title:'SVG Master Ugvay', subtitle:'Har qanday fanni jonli animatsiyada tushuntiring', subject:'Ta’lim videolari', author:'Ugvay',
+  format:'16:9', theme:'night', lang:'uz', music:'calm', brand:'UGVAY',
+  scenes:[
+    {kind:'title', say:'Bitta skript — biologiya, tibbiyot, kimyo, fizika, tarix va iqtisod.'},
+
+    {title:'Biologiya: hujayra — hayotning *birligi*',
+     say:'Hayvon hujayrasining asosiy qismlari bilan tanishamiz. Mitoxondriya — hujayraning energiya stansiyasi.',
+     camera:[{t:6.6,on:'@c.mitochondria',zoom:1.7,dur:1.4},{t:9.6,zoom:1,dur:1.2}],
+     items:[{type:'cell',id:'c',area:'full',labels:['nucleus','nucleolus','mitochondria','er','golgi','ribosome','lysosome','membrane']},
+            {type:'pulse',on:'@c.mitochondria',at:7.4,color:'a2'}]},
+
+    {title:'Tibbiyot: yurak qanday *ishlaydi*',
+     say:'Venoz qon o‘ng bo‘lmachaga, arterial qon esa aorta orqali butun tanaga chiqadi. Yurak daqiqasiga taxminan 70 marta uradi.',
+     items:[{type:'heart',area:'left2',labels:['ra','la','rv','lv','aorta'],bpm:70},
+            {type:'number',area:'right2',value:70,label:'zarba / daqiqa',at:'+3'}]},
+
+    {title:'Kimyo: vodorodning *yonishi*',
+     say:'Ikki molekula vodorod bir molekula kislorod bilan reaksiyaga kirishib, ikki molekula suv hosil qiladi.',
+     items:[{type:'reaction',area:'full',left:['2H2','O2'],right:['2H2O'],condition:'t°'},
+            {type:'sparks',x:960,y:470,at:2.9,dur:.3,out:4.5}]},
+
+    {title:'Fizika: gorizontga burchak ostida *otish*',
+     say:'Jism parabola bo‘ylab harakatlanadi. Uchish uzoqligi boshlang‘ich tezlik va burchakka bog‘liq.',
+     items:[{type:'projectile',area:'left2',v0:18,angle:55},
+            {type:'formula',area:'right2',tex:'L=\\frac{v_0^2\\sin 2\\alpha}{g}',size:76,boxed:true,at:'+1.2'}]},
+
+    {title:'Astronomiya: Keplerning ikkinchi *qonuni*',
+     say:'Sayyora Quyoshga yaqinlashganda tezlashadi. Teng vaqtda teng yuzalar chiziladi.',
+     items:[{type:'orbit',area:'left2',e:.6,areas:true,period:6},
+            {type:'formula',area:'right2',tex:'F=G\\frac{m_1 m_2}{r^2}',size:72,at:'+1'}]},
+
+    {title:'Tarix: Amir Temur *hayoti*',
+     say:'Muhim sanalar vaqt chizig‘ida ketma-ket ochiladi.',
+     items:[{type:'timeline',area:'full',events:[{date:'1336',title:'Keshda tug‘ildi'},{date:'1370',title:'Movarounnahr hukmdori'},{date:'1402',title:'Anqara jangi'},{date:'1405',title:'O‘trorda vafot etdi'}]}]},
+
+    {title:'Iqtisod: talab va *taklif*',
+     say:'Talab va taklif egri chiziqlari kesishgan nuqta — bozor muvozanati.',
+     items:[{type:'chart',area:'center',xrange:[0,10],yrange:[0,10],xlabel:'Miqdor',ylabel:'Narx',
+             fns:[{f:'9-0.8*x',label:'Talab',color:'a3'},{f:'1+0.8*x',label:'Taklif',color:'a4'}],mark:{x:5,y:5,label:'Muvozanat'}}]},
+
+    {kind:'quiz', question:'Hujayraning energiya stansiyasi qaysi organoid?', options:['Yadro','Mitoxondriya','Ribosoma','Golji apparati'], answer:1, think:4,
+     explain:'*Mitoxondriya* ATF ishlab chiqaradi.'},
+
+    {kind:'end', points:['Gemini faqat LESSON skriptini yozadi','Dvigatel animatsiya, ovoz va QA ni bajaradi','Har qanday fan: diagramma, formula, simulyatsiya']}
+  ]});
+</script></body></html>
